@@ -1,0 +1,23 @@
+.headerBanner {
+  padding: 2rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background-color: #dc143c;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas {
+  width: 50%;
+  padding: 10px
+}
+
+.codeBlock {
+  width: 50%;
+  padding: 10px;
+}
