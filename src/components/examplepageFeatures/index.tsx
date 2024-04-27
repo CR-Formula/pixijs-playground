@@ -30,6 +30,16 @@ const FeatureList: FeatureItem[] = [
       </>
     ),
   },
+  {
+    title: 'Wheel',
+    page: '/examples/Wheel',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a wheel and rotates it clockwise continuously.
+      </>
+    ),
+  },
 ];
 
 function Feature({title, page, Svg, description}: FeatureItem): JSX.Element {
