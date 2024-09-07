@@ -6,22 +6,50 @@ import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
-import useSerialConnection from '@site/src/scripts/serialInput';
+import SerialProvider, { useSerial, SerialMessage } from '@site/src/scripts/serialProvider';
 
 export default function serialExample() {
-  const connection = useSerialConnection();
+  const {
+    canUseSerial,
+    connect,
+    disconnect,
+    portState,
+    subscribe,
+  } = useSerial(); // Destructure the values and functions from the context
 
-  const init = (() => {
-    connection.init(connection.state.id);
-  });
+  const [messages, setMessages] = useState<SerialMessage[]>([]);
 
-  const connect = (async () => {
-    await connection.connect();
-  });
+  useEffect(() => {
+    if (!canUseSerial) {
+      console.error('Web Serial API is not supported by this browser.');
+      return;
+    }
 
-  const latestValues = "NULL";
+    // Subscribe to incoming serial messages
+    const unsubscribe = subscribe((message) => {
+      setMessages((prevMessages) => [...prevMessages, message]);
+    });
+
+    // Cleanup on component unmount
+    return () => {
+      unsubscribe();
+    };
+  }, [canUseSerial, subscribe]);
+
+  const handleConnect = async () => {
+    const connected = await connect();
+    if (!connected) {
+      console.error('Failed to connect to the serial port.');
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+  };
+
   return (
     <Layout>
+    <SerialProvider>
       <header className={clsx(styles.headerBanner)}>
         <div className="container">
           <Heading as="h1" className="example_title">Hello Triangle</Heading>
@@ -36,14 +64,15 @@ export default function serialExample() {
           </SyntaxHighlighter>
         </div>
         <div className={styles.codeBlock}>
-        <div style={{padding: '10px'}}><button onClick={connection.selectPort}>SELECT PORT</button></div>
-        <div style={{padding: '10px'}}><button onClick={init}>INIT</button></div>
-        <div style={{padding: '10px'}}><button onClick={connect}>CONNECT</button></div>
+        {/* <div style={{padding: '10px'}}><button onClick={connection.selectPort}>SELECT PORT</button></div> */}
+        <div style={{padding: '10px'}}><button onClick={handleConnect}>CONNECT</button></div>
+        <div style={{padding: '10px'}}><button onClick={handleDisconnect}>DISCONNECT</button></div>
           <SyntaxHighlighter language="typescript" style={atomOneDark}>
-            {latestValues}
+            {messages}
           </SyntaxHighlighter>
         </div>
       </main>
+    </SerialProvider>
     </Layout>
   );
 };

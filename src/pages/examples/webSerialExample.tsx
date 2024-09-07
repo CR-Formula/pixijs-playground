@@ -6,18 +6,14 @@ import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
+import { PortState, SerialContext, useSerial } from '@site/src/scripts/serialProvider';
 
-
-export default function webSerialExample() {
-  
-  
-
-
+export default function WebSerialExample(): JSX.Element {
   return (
     <Layout>
       <header className={clsx(styles.headerBanner)}>
         <div className="container">
-          <Heading as="h1" className="example_title">Hello Triangle</Heading>
+          <Heading as="h1" className="example_title">Web Serial</Heading>
         </div>
       </header>
       <main style={{ display: 'flex'}}>
@@ -29,8 +25,6 @@ export default function webSerialExample() {
           </SyntaxHighlighter>
         </div>
         <div className={styles.codeBlock}>
-        {/* <div style={{padding: '4px'}}><button onClick={serial.connect}>CONNECT</button></div>
-        <div style={{padding: '4px'}}><button onClick={serial.disconnect}>DISCONNECT</button></div> */}
           <SyntaxHighlighter language="typescript" style={atomOneDark}>
             {/* {latestValues} */}
           </SyntaxHighlighter>
