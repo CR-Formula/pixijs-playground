@@ -11,8 +11,8 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Hello Triangle',
-    page: '/examples/helloTriangle',
+    title: 'Moving Line',
+    page: '/examples/movingLine',
     Svg: require('@site/static/img/helloTriangle.svg').default,
     description: (
       <>
@@ -21,8 +21,8 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: 'Moving Line',
-    page: '/examples/movingLine',
+    title: 'Time Domain',
+    page: '/examples/timeDomain',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
@@ -40,6 +40,16 @@ const FeatureList: FeatureItem[] = [
       </>
     ),
   },
+  {
+    title: 'Triangle',
+    page: '/examples/helloTriangle',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a Triangle.
+      </>
+    ),
+  }
 ];
 
 function Feature({title, page, Svg, description}: FeatureItem): JSX.Element {

@@ -8,6 +8,7 @@ import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
 
 var resizeHandler : EventListener | any;
+var rotationSpeed = 0.01;
 
 export default function HelloTriangle(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
@@ -34,10 +35,14 @@ export default function HelloTriangle(): JSX.Element {
         graphics.lineTo(windowSize / 2, windowSize / 10);
         graphics.fill(0xff0000);
         graphics.stroke({ width: 4, color: 0x000000 });
-
+        
         graphics.closePath();
           
         app.stage.addChild(graphics);
+
+        app.ticker.add(() => {
+          graphics.rotation += rotationSpeed; // Rotate the triangle
+        });
       };
 
       // Function to handle resizing
