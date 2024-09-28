@@ -59,6 +59,16 @@ const FeatureList: FeatureItem[] = [
         Makes a Triangle.
       </>
     ),
+  },
+  {
+    title: 'Dial',
+    page: '/examples/dial',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a Triangle.
+      </>
+    ),
   }
 ];
 
