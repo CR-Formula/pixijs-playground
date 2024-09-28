@@ -36,6 +36,58 @@ export default function square(): JSX.Element {
 
                 graphics.closePath();
 
+                graphics.moveTo(windowSize / 3, windowSize / 8);
+                graphics.lineTo(windowSize - (windowSize / 3), (windowSize / 8));
+                graphics.lineTo(windowSize - (windowSize / 3), windowSize - (windowSize / 8));
+                graphics.lineTo((windowSize / 3), windowSize - (windowSize / 8));
+                graphics.lineTo((windowSize / 3), (windowSize / 8));
+                graphics.fill(0x000000)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 8, windowSize / 3);
+                graphics.lineTo(windowSize - (windowSize / 8), (windowSize / 3));
+                graphics.lineTo(windowSize - (windowSize / 8), windowSize - (windowSize / 3));
+                graphics.lineTo((windowSize / 8), windowSize - (windowSize / 3));
+                graphics.lineTo((windowSize / 8), (windowSize / 3));
+                graphics.fill(0x000000)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 2, windowSize / 8);
+                graphics.lineTo((windowSize / 2), windowSize - (windowSize / 8));
+                graphics.moveTo(windowSize / 8, windowSize / 2);
+                graphics.lineTo(windowSize - (windowSize / 8), (windowSize / 2))
+                graphics.stroke({ width: 4, color: 0xFF0000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 8, windowSize / 8);
+                graphics.lineTo(windowSize - (windowSize / 8), windowSize - (windowSize / 8));
+                graphics.moveTo(windowSize - (windowSize / 8), windowSize / 8);
+                graphics.lineTo((windowSize / 8), windowSize - (windowSize / 8))
+                graphics.stroke({ width: 4, color: 0x0000FF });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 2, windowSize / 4);
+                graphics.lineTo(windowSize - (windowSize / 4), (windowSize / 2));
+                graphics.lineTo(windowSize - (windowSize / 2), windowSize - (windowSize / 4));
+                graphics.lineTo((windowSize / 4), windowSize - (windowSize / 2));
+                graphics.lineTo((windowSize / 2), (windowSize / 4));
+                graphics.fill(0xFF00FF)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.circle(windowSize / 2, windowSize / 2, 20);
+                graphics.fill(0x00FF00)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
                 app.stage.addChild(graphics);
             };
 
