@@ -11,6 +11,16 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
+    title: 'Triangle',
+    page: '/examples/helloTriangle',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a Triangle.
+      </>
+    ),
+  },
+  {
     title: 'Moving Line',
     page: '/examples/movingLine',
     Svg: require('@site/static/img/helloTriangle.svg').default,
@@ -41,8 +51,8 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: 'Triangle',
-    page: '/examples/helloTriangle',
+    title: 'Square',
+    page: '/examples/square',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
