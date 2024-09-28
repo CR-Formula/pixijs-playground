@@ -130,62 +130,111 @@ export default function square(): JSX.Element {
             <div className={styles.codeBlock}>
             <SyntaxHighlighter language="typescript" style={atomOneDark}>
                 {`
-    const pixiContainerRef = useRef<HTMLDivElement>(null);
-    
-    useEffect(() => {
-      const initPixiApp = async () => {
-      var windowSize : number;
-    
-      // Create a new application
-      const app = new Application();
-    
-      // Initialize the application
-      await app.init({ background:'#FFFFFF', antialias: true });
-    
-      // Draw function - necessary for resizing
-      const draw = () => {
-        app.stage.removeChildren();
-        const graphics = new Graphics();
-      
-        // Triangle
-        graphics.moveTo(windowSize / 2, windowSize / 10);
-        graphics.lineTo(windowSize / 10, windowSize * 9 / 10);
-        graphics.lineTo(windowSize * 9 / 10, windowSize * 9 / 10);
-        graphics.lineTo(windowSize / 2, windowSize / 10);
-        graphics.fill(0xff0000);
-        graphics.stroke({ width: 4, color: 0x000000 });
-    
-        graphics.closePath();
-              
-        app.stage.addChild(graphics);
-      };
-    
-      // Function to handle resizing
-      resizeHandler = () => {
-        windowSize = Math.min(window.innerWidth, window.innerHeight) / 2;
-        app.renderer.resize(windowSize, windowSize);
+    const initPixiApp = async () => {
+            var windowSize : number;
+
+            // Create a new application
+            const app = new Application();
+
+            // Initialize the application
+            await app.init({ background:'#00FFFF', antialias: true });
+
+            const draw = () => {
+                app.stage.removeChildren();
+                const graphics = new Graphics();
+
+                graphics.moveTo(windowSize / 8, windowSize / 8);
+                graphics.lineTo(windowSize - (windowSize / 8), (windowSize / 8));
+                graphics.lineTo(windowSize - (windowSize / 8), windowSize - (windowSize / 8));
+                graphics.lineTo((windowSize / 8), windowSize - (windowSize / 8));
+                graphics.lineTo((windowSize / 8), (windowSize / 8));
+                graphics.fill(0x7285A5)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 3, windowSize / 8);
+                graphics.lineTo(windowSize - (windowSize / 3), (windowSize / 8));
+                graphics.lineTo(windowSize - (windowSize / 3), windowSize - (windowSize / 8));
+                graphics.lineTo((windowSize / 3), windowSize - (windowSize / 8));
+                graphics.lineTo((windowSize / 3), (windowSize / 8));
+                graphics.fill(0x000000)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 8, windowSize / 3);
+                graphics.lineTo(windowSize - (windowSize / 8), (windowSize / 3));
+                graphics.lineTo(windowSize - (windowSize / 8), windowSize - (windowSize / 3));
+                graphics.lineTo((windowSize / 8), windowSize - (windowSize / 3));
+                graphics.lineTo((windowSize / 8), (windowSize / 3));
+                graphics.fill(0x000000)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 2, windowSize / 8);
+                graphics.lineTo((windowSize / 2), windowSize - (windowSize / 8));
+                graphics.moveTo(windowSize / 8, windowSize / 2);
+                graphics.lineTo(windowSize - (windowSize / 8), (windowSize / 2))
+                graphics.stroke({ width: 4, color: 0xFF0000 });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 8, windowSize / 8);
+                graphics.lineTo(windowSize - (windowSize / 8), windowSize - (windowSize / 8));
+                graphics.moveTo(windowSize - (windowSize / 8), windowSize / 8);
+                graphics.lineTo((windowSize / 8), windowSize - (windowSize / 8))
+                graphics.stroke({ width: 4, color: 0x0000FF });
+
+                graphics.closePath();
+
+                graphics.moveTo(windowSize / 2, windowSize / 4);
+                graphics.lineTo(windowSize - (windowSize / 4), (windowSize / 2));
+                graphics.lineTo(windowSize - (windowSize / 2), windowSize - (windowSize / 4));
+                graphics.lineTo((windowSize / 4), windowSize - (windowSize / 2));
+                graphics.lineTo((windowSize / 2), (windowSize / 4));
+                graphics.fill(0xFF00FF)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                graphics.circle(windowSize / 2, windowSize / 2, 20);
+                graphics.fill(0x00FF00)
+                graphics.stroke({ width: 4, color: 0x000000 });
+
+                graphics.closePath();
+
+                app.stage.addChild(graphics);
+            };
+
+            resizeHandler = () => {
+                const container = pixiContainerRef.current;
+                const padding = parseInt(window.getComputedStyle(container).padding);
+                windowSize = Math.min(container.clientWidth - (padding * 2), container.clientHeight - (padding * 2));
+                app.renderer.resize(windowSize, windowSize);
+                
+                // Trigger rendering to update the scene
+                app.render();
+                draw();
+            };
+
+            // Resize the canvas initially
+            resizeHandler();
+
+            // Listen for window resize events
+            window.addEventListener('resize', resizeHandler);
         
-        // Trigger rendering to update the scene
-        app.render();
-        draw();
-      };
-    
-      // Resize the canvas initially
-      resizeHandler();
-    
-      // Listen for window resize events
-      window.addEventListener('resize', resizeHandler);
-            
-      // Append the application canvas to the document body
-      pixiContainerRef.current.appendChild(app.canvas);
-    };
-    
-    initPixiApp();
-    return () => {
-      // Remove resize event listener
-      window.removeEventListener('resize', resizeHandler);
-    };
-    }, []);
+            // Append the application canvas to the document body
+            pixiContainerRef.current.appendChild(app.canvas);
+
+            }
+            initPixiApp();
+            return () => {
+                // Remove resize event listener
+                window.removeEventListener('resize', resizeHandler);
+            };
+            }
                 `}
               </SyntaxHighlighter>
             </div>
