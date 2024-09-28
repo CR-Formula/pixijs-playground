@@ -6,7 +6,6 @@ import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
-import { PortState, SerialContext, useSerial } from '@site/src/scripts/serialProvider';
 
 export default function WebSerialExample(): JSX.Element {
   return (
