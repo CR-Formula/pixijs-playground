@@ -49,6 +49,16 @@ const FeatureList: FeatureItem[] = [
         Makes a Triangle.
       </>
     ),
+  },
+  {
+    title: 'Square',
+    page: '/examples/square',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a Triangle.
+      </>
+    ),
   }
 ];
 
