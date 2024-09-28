@@ -59,7 +59,43 @@ export default function serialExample() {
         <div className={styles.codeBlock}>
           <SyntaxHighlighter language="typescript" style={atomOneDark}>
             {`
-// CODE BLOCK
+const {
+    canUseSerial,
+    connect,
+    disconnect,
+    portState,
+    subscribe,
+  } = useSerial(); // Destructure the values and functions from the context
+
+  const [messages, setMessages] = useState<SerialMessage[]>([]);
+
+  useEffect(() => {
+    if (!canUseSerial) {
+      console.error('Web Serial API is not supported by this browser.');
+      return;
+    }
+
+    // Subscribe to incoming serial messages
+    const unsubscribe = subscribe((message) => {
+      setMessages((prevMessages) => [...prevMessages, message]);
+    });
+
+    // Cleanup on component unmount
+    return () => {
+      unsubscribe();
+    };
+  }, [canUseSerial, subscribe]);
+
+  const handleConnect = async () => {
+    const connected = await connect();
+    if (!connected) {
+      console.error('Failed to connect to the serial port.');
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+  };
             `}
           </SyntaxHighlighter>
         </div>
