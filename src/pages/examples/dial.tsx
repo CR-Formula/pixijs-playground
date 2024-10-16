@@ -7,6 +7,14 @@ import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
 
+// add the ticker at very end of main file fucntion (check random number e.g.) |||
+// create var value : number; |||
+// value - min = x
+// max - min = y
+// x / y to get fraction of vectors to draw
+// multuply that fracion by len(vectors) to draw |||
+// ALSO make new branch to separate dial from my square branch
+
 var resizeHandler : EventListener | any;
 
 export default function square(): JSX.Element {
@@ -19,6 +27,13 @@ export default function square(): JSX.Element {
             var originX : number;
             var originY : number;
             var radius : number;
+            var value : number;
+            var minVal : number;
+            var maxVal : number;
+
+            minVal = 0;
+            maxVal = 100;
+            value = 75;
 
             // Create a new application
             const app = new Application();
@@ -32,7 +47,7 @@ export default function square(): JSX.Element {
                 var increment = Math.PI / 250;
 
                 for (var angle = 0; angle < Math.PI; angle += increment) {
-                    var x = originX + Math.cos(angle) * radius;
+                    var x = originX + -1 * Math.cos(angle) * radius;
                     var y = originY + -1 * Math.sin(angle) * radius;
                     newVertices = [...newVertices, x, y];
                 }
@@ -45,7 +60,7 @@ export default function square(): JSX.Element {
                 const graphics = new Graphics();
 
                 graphics.moveTo(originX, originY);
-                for (var i = 0; i < vertices.length; i += 2) {
+                for (var i = 0; i < (vertices.length * ((value - minVal) / (maxVal - minVal))); i += 2) {
                     var x = vertices[i];
                     var y = vertices[i+1];
                     graphics.lineTo(x,y);
@@ -87,12 +102,18 @@ export default function square(): JSX.Element {
             // Append the application canvas to the document body
             pixiContainerRef.current.appendChild(app.canvas);
 
+            // Utilized to call the draw - 60fps
+          app.ticker.add(() => {
+            draw();
+
+          });
+
         }
         initPixiApp();
         return () => {
             // Remove resize event listener
             window.removeEventListener('resize', resizeHandler);
-        };
+         };
     }, []);
 
     return (
