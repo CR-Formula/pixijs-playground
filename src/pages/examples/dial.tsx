@@ -1,4 +1,4 @@
-import { Application, Graphics } from 'pixi.js';
+import { Application, Graphics, Text } from 'pixi.js';
 import { useEffect, useRef } from 'react';
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
@@ -30,6 +30,7 @@ export default function square(): JSX.Element {
             var value : number;
             var minVal : number;
             var maxVal : number;
+            var incrementHolder : number;
 
             minVal = 0;
             maxVal = 100;
@@ -59,20 +60,44 @@ export default function square(): JSX.Element {
                 app.stage.removeChildren();
                 const graphics = new Graphics();
 
-                graphics.moveTo(originX, originY);
+                graphics.moveTo(vertices[0], vertices[1]);
                 for (var i = 0; i < (vertices.length * ((value - minVal) / (maxVal - minVal))); i += 2) {
                     var x = vertices[i];
                     var y = vertices[i+1];
                     graphics.lineTo(x,y);
-                }
 
-                graphics.lineTo(originX, originY);
+                    incrementHolder = i
+                }
+                
+                for (var i = incrementHolder; i >= 0; i -= 2) {
+                  var x = ((vertices[i] - originX) * (3/5)) + originX;
+                  var y = ((vertices[i+1] - originY) * (3/5)) + originY;
+                  graphics.lineTo(x,y);
+                }
+              
+                graphics.lineTo(vertices[0], vertices[1]);
                 graphics.closePath();
 
                 graphics.fill(0x7285A5);
                 graphics.stroke({ width: 2, color: 0xFF0000 });
 
+                graphics.moveTo(originX, originY)
+                graphics.stroke({ width: 2, color: 0x000000, alpha: value })
+
                 app.stage.addChild(graphics);
+
+                let valueLabel = new Text({
+                  text: value,
+                  x: originX - windowSize / 11,
+                  y: originY - windowSize / 8,
+                  style:{
+                    fontFamily:'short-stack',
+                    fontSize : 10,
+                    fill: "#000000"
+                  }
+                });
+            
+            app.stage.addChild(valueLabel);
             };
 
 
