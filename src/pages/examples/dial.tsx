@@ -31,16 +31,20 @@ export default function square(): JSX.Element {
             var minVal : number;
             var maxVal : number;
             var incrementHolder : number;
+            var unitHolder : string;
 
             minVal = 0;
             maxVal = 100;
             value = 75;
+            unitHolder = 'Mp/h'
+
+            // 
 
             // Create a new application
             const app = new Application();
 
             // Initialize the application
-            await app.init({ background:'#00FFFF', antialias: true });
+            await app.init({ background:'#d3d3d3', antialias: true });
 
             // Find New Vertices
             const setVertices = () => {
@@ -61,6 +65,27 @@ export default function square(): JSX.Element {
                 const graphics = new Graphics();
 
                 graphics.moveTo(vertices[0], vertices[1]);
+                for (var i = 0; i < vertices.length; i += 2) {
+                    var x = vertices[i];
+                    var y = vertices[i+1];
+                    graphics.lineTo(x,y);
+
+                    incrementHolder = i
+                }
+
+                for (var i = incrementHolder; i >= 0; i -= 2) {
+                  var x = ((vertices[i] - originX) * (3/5)) + originX;
+                  var y = ((vertices[i+1] - originY) * (3/5)) + originY;
+                  graphics.lineTo(x,y);
+                }
+              
+                graphics.lineTo(vertices[0], vertices[1]);
+                graphics.closePath();
+
+                graphics.fill(0x000000);
+                graphics.stroke({ width: 3, color: 0x000000})
+
+                graphics.moveTo(vertices[0], vertices[1]);
                 for (var i = 0; i < (vertices.length * ((value - minVal) / (maxVal - minVal))); i += 2) {
                     var x = vertices[i];
                     var y = vertices[i+1];
@@ -79,25 +104,37 @@ export default function square(): JSX.Element {
                 graphics.closePath();
 
                 graphics.fill(0x7285A5);
-                graphics.stroke({ width: 2, color: 0xFF0000 });
+                graphics.stroke({ width: 0, color: 0x000000 });
 
                 graphics.moveTo(originX, originY)
-                graphics.stroke({ width: 2, color: 0x000000, alpha: value })
+                graphics.stroke({ width: 2, color: 0x000000})
 
                 app.stage.addChild(graphics);
 
                 let valueLabel = new Text({
-                  text: value,
-                  x: originX - windowSize / 11,
-                  y: originY - windowSize / 8,
+                  text: (value),
+                  x: originX - windowSize / 12,
+                  y: originY - windowSize / 9,
                   style:{
                     fontFamily:'short-stack',
-                    fontSize : 10,
+                    fontSize : 8,
+                    fill: "#000000"
+                  }
+                });
+
+                let unitLabel = new Text({
+                  text: (unitHolder),
+                  x: originX - windowSize / 9,
+                  y: originY,
+                  style:{
+                    fontFamily:'short-stack',
+                    fontSize : 8,
                     fill: "#000000"
                   }
                 });
             
             app.stage.addChild(valueLabel);
+            app.stage.addChild(unitLabel);
             };
 
 
