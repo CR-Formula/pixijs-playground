@@ -32,6 +32,10 @@ export default function square(): JSX.Element {
             var maxVal : number;
             var incrementHolder : number;
             var unitHolder : string;
+            var valueWidth : number;
+            var valueHeight : number;
+            var unitWidth : number;
+            var unitHeight : number;
 
             minVal = 0;
             maxVal = 100;
@@ -113,25 +117,32 @@ export default function square(): JSX.Element {
 
                 let valueLabel = new Text({
                   text: (value),
-                  x: originX - windowSize / 12,
-                  y: originY - windowSize / 9,
+                  x: originX - valueWidth / 2,
+                  y: originY - (valueHeight + windowSize / 15),
                   style:{
                     fontFamily:'short-stack',
-                    fontSize : 8,
+                    fontSize : 10,
                     fill: "#000000"
                   }
                 });
 
                 let unitLabel = new Text({
                   text: (unitHolder),
-                  x: originX - windowSize / 9,
-                  y: originY,
+                  x: originX - unitWidth / 2,
+                  y: originY - unitHeight,
                   style:{
                     fontFamily:'short-stack',
-                    fontSize : 8,
+                    fontSize : 10,
                     fill: "#000000"
                   }
                 });
+
+                valueWidth = valueLabel.width;
+                valueHeight = valueLabel.height;
+
+                unitWidth = unitLabel.width;
+                unitHeight = unitLabel.height;
+
             
             app.stage.addChild(valueLabel);
             app.stage.addChild(unitLabel);
