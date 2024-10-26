@@ -7,14 +7,6 @@ import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
 
-// add the ticker at very end of main file fucntion (check random number e.g.) |||
-// create var value : number; |||
-// value - min = x
-// max - min = y
-// x / y to get fraction of vectors to draw
-// multuply that fracion by len(vectors) to draw |||
-// ALSO make new branch to separate dial from my square branch
-
 var resizeHandler : EventListener | any;
 
 export default function square(): JSX.Element {
@@ -41,8 +33,6 @@ export default function square(): JSX.Element {
             maxVal = 100;
             value = 75;
             unitHolder = 'Mp/h'
-
-            // 
 
             // Create a new application
             const app = new Application();
