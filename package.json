@@ -18,14 +18,15 @@
     "@docusaurus/core": "3.2.1",
     "@docusaurus/preset-classic": "3.2.1",
     "@mdx-js/react": "^3.0.0",
-    "@types/w3c-web-serial": "^1.0.6",
     "browser-serial": "^1.0.7",
     "clsx": "^2.0.0",
     "pixi.js": "^8.1.0",
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "react-syntax-highlighter": "^15.5.0"
+    "react-syntax-highlighter": "^15.5.0",
+    "@types/w3c-web-serial": "^1.0.3",
+    "web-serial-polyfill": "^1.0.14"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.2.1",

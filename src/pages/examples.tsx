@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
-import ExamplepageFeatures from '@site/src/components/examplepageFeatures';
+import ExamplepageFeatures from '@site/src/components/ExamplepageFeatures';
 import Heading from '@theme/Heading';
 import styles from './css/examples.module.css';
 

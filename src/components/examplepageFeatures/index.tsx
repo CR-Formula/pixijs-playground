@@ -49,6 +49,16 @@ const FeatureList: FeatureItem[] = [
         Makes a Triangle.
       </>
     ),
+  },
+  {
+    title: 'Reading Serial',
+    page: '/examples/serial',
+    Svg: require('@site/static/img/serial.svg').default,
+    description: (
+      <>
+        This describes how to connect a serial input and how it outputs
+      </>
+    ),
   }
 ];
 
