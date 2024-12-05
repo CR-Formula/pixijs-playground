@@ -15,7 +15,8 @@ export default function MovingLine(): JSX.Element {
   useEffect(() => {
     const initPixiApp = async () => {
       var windowSize : number;
-
+      var loadingProgress = 1 / 10;
+      
       // Create a new application
       const app = new Application();
 
@@ -41,8 +42,27 @@ export default function MovingLine(): JSX.Element {
           graphics.lineTo(x, y);
         }
         graphics.stroke({ width: 2, color: 0x000000 });
+
+        // Draw loading bar
+        const loadingBarWidth = windowSize - (windowSize / 5);
+        const loadingBarHeight = windowSize / 5;
+        const loadingBarY = windowSize - (windowSize / 10);
+        const loadingBarColor = 0x00ff00; // Green color for loaded part of the bar
+        const loadingBarBgColor = 0xff0000; // Red color for remaining part of the bar
+        
+
+        const loadingBarGraphics = new Graphics();
+        loadingBarGraphics.moveTo(windowSize / 10, windowSize - windowSize / 10);
+        loadingBarGraphics.lineTo(loadingProgress * windowSize, loadingBarY);
+        
+        loadingBarGraphics.stroke({ width: 2, color: 0x000000 });
+
+        app.ticker.add(() => {
+          loadingProgress += 0.0001; 
+        });
           
         app.stage.addChild(graphics);
+        app.stage.addChild(loadingBarGraphics);
       };
 
       // Function to handle resizing

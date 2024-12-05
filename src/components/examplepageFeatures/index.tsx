@@ -11,8 +11,8 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Hello Triangle',
-    page: '/examples/helloTriangle',
+    title: 'Moving Line',
+    page: '/examples/movingLine',
     Svg: require('@site/static/img/helloTriangle.svg').default,
     description: (
       <>
@@ -21,12 +21,32 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: 'Moving Line',
-    page: '/examples/movingLine',
+    title: 'Time Domain',
+    page: '/examples/timeDomain',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
         This example displays a randomly moving line.
+      </>
+    ),
+  },
+  {
+    title: 'Wheel',
+    page: '/examples/Wheel',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a wheel and rotates it clockwise continuously.
+      </>
+    ),
+  },
+  {
+    title: 'Triangle',
+    page: '/examples/helloTriangle',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Makes a Triangle.
       </>
     ),
   },
@@ -39,7 +59,7 @@ const FeatureList: FeatureItem[] = [
         This describes how to connect a serial input and how it outputs
       </>
     ),
-  },
+  }
 ];
 
 function Feature({title, page, Svg, description}: FeatureItem): JSX.Element {
