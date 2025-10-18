@@ -59,6 +59,16 @@ const FeatureList: FeatureItem[] = [
         This describes how to connect a serial input and how it outputs
       </>
     ),
+  },
+  {
+    title: 'Dot Plot',
+    page: '/examples/dotPlot',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        This example shows a dot plot graph.
+      </>
+    ),
   }
 ];
 
