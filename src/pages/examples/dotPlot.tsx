@@ -12,174 +12,210 @@ var resizeHandler: EventListener | any;
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   
-  // Graph margin
+  // Graph bounds
   const leftMargin = 65;
   const bottomMargin = 50;
-
-  // Graph ticks
-  const numXTicks = 5;
-  const xTickLength = 20;
-  const yTickLength = 10;
-  var xTickOffset = 0;
-  const yTickInterval = 0.5;
-
-  var datasets = [];
+  var windowSize: number;
   var dataMax = -Infinity;
   var dataMin = Infinity;
+
+  // Graph X ticks
+  const numXTicks = 5;
+  const xTickLength = 20;
+  var xTickInterval = 0, xTickOffset = 0;
+  
+  // Graph Y ticks
+  const yCleanSpacings = [1, 0.4, 0.2, 0.1];
+  const yTickLength = 10;
+  var yTickInterval = 0, yTargetSpacing = 0, basePower = 0, numYTicks = 0;
+
+  // Graph data
+  const maxVertices = 100;
+  var datasets = [];
+  var startingPoint = 0;
   var angle = 0;
-  const vertexCount = 100;
   var sampleCount = 0;
   
   useEffect(() => {
     const initPixiApp = async () => {
-      var windowSize: number;
-      
+      // Local refs so cleanup can access them
+      let appRef: Application | null = null;
+      let graphicsRef: Graphics | null = null;
+      const yLabelPool: Text[] = [];
+      let createdTexts = 0;
+      let createdGraphics = 0;
+
       // Create a new application
       const app = new Application();
+      appRef = app;
       
       // Initialize the application
       await app.init({ background: '#FFFFFF', antialias: true });
-      
 
+      // Create and reuse a single Graphics instance (or a small set of layers)
+      graphicsRef = new Graphics();
+      createdGraphics++;
+      app.stage.addChild(graphicsRef);
+
+      // Prepare a small pool of Y-label Text objects and reuse them every frame
+      const maxYLabelPool = 48; // reasonable upper bound for ticks
+      for (let i = 0; i < maxYLabelPool; i++) {
+        const lbl = new Text('', { fontFamily: 'short-stack', fontSize: 18 });
+        lbl.anchor = { x: 1, y: 0.5 } as any;
+        lbl.visible = false;
+        app.stage.addChild(lbl);
+        yLabelPool.push(lbl);
+        createdTexts++;
+      }
 
       ////////// Draw function - called continuously (60fps) //////////
       const draw = () => {
         ///// Initialization /////
 
-        // Reset the drawing at the beginning of every frame
-        app.stage.removeChildren();
-        const graphics = new Graphics();
+        if (!graphicsRef) return;
+
+        // Reuse graphics: clear instead of creating/destroying every frame
+        graphicsRef.clear();
         dataMax = -Infinity;
         dataMin = Infinity;
         
         // Resize the graph bounds to fit the shown points
-        for (var i = 1; i < Math.min(sampleCount, vertexCount); i++) {
-          var dataPoint = sampleCount < vertexCount ? datasets[i] : datasets[datasets.length - vertexCount + i];
-
+        for (let i = 1; i < Math.min(sampleCount, maxVertices); i++) {
+          let dataPoint = sampleCount < maxVertices ? datasets[i] : datasets[datasets.length - maxVertices + i];
+          
           dataMax = Math.max(dataPoint, dataMax);
           dataMin = Math.min(dataPoint, dataMin);
         }
-
+        
         // Update the drawing bounds
         const graphXMin = 0 + leftMargin;
         const graphYMin = 0;
         const graphXMax = windowSize;
         const graphYMax = windowSize - bottomMargin;
-
-        // Draw the y-axis
-        graphics.moveTo(leftMargin, 0);
-        graphics.lineTo(leftMargin, windowSize - bottomMargin);
-        graphics.stroke({ width: 2, color: 0x000000, alpha: 1 });
         
-        // Draw the x-axis
-        graphics.moveTo(leftMargin, windowSize - bottomMargin);
-        graphics.lineTo(windowSize, windowSize - bottomMargin);
-        graphics.stroke({ width: 2, color: 0x000000, alpha: 1 });
-
-
-        ///// Tick lines /////
-
-        // Prepare tick lines
-        const xTickInterval = (graphXMax - leftMargin) / numXTicks;
-        const numYTicks = Math.round((dataMax - dataMin) / yTickInterval) + 1;
-        const firstYTick = (Math.round(dataMax / yTickInterval)) * yTickInterval;
-
+        
+        ///// X Tick lines /////
+        
+        // Prepare X tick lines
+        xTickInterval = (graphXMax - leftMargin) / numXTicks;
+        
         // Draw the X ticks and grid lines
         for (let i = 0; i < numXTicks; i++) {
           let x = (leftMargin) + i * xTickInterval - xTickOffset;
           x = x % (graphXMax - graphXMin);
           if (x < graphXMin)
             x = graphXMax + x;
-
-          // Draw x-tick
-          graphics.moveTo(x, graphYMax);
-          graphics.lineTo(x, graphYMax + xTickLength / (i % 2 + 1));
-          graphics.stroke({ width: 2, color: 0x000000, alpha: 1 });
-
-          // Draw grid line for x
-          graphics.moveTo(x, graphYMin);
-          graphics.lineTo(x, graphYMax);
-          graphics.stroke({ width: 2, color: 0x000000, alpha: 0.15 });
+          
+          // Draw X tick
+          graphicsRef.moveTo(x, graphYMax);
+          graphicsRef.lineTo(x, graphYMax + xTickLength / (i % 2 + 1));
+          graphicsRef.stroke({ width: 2, color: 0x000000 });
+          
+          // Draw grid line for X
+          graphicsRef.moveTo(x, graphYMin);
+          graphicsRef.lineTo(x, graphYMax);
+          graphicsRef.stroke({ width: 2, color: 0xCCCCCC });
         }
 
-        // Draw the Y ticks and grid lines
+
+        ///// Y Tick lines /////
+        
+        // Prepare Y tick lines with guards to avoid NaN/Infinity
+        const dataRange = isFinite(dataMax) && isFinite(dataMin) && dataMax !== dataMin ? dataMax - dataMin : 1;
+        yTargetSpacing = dataRange / 10.0; // Split range into roughly 5-10 ticks
+        if (yTargetSpacing <= 0 || !isFinite(yTargetSpacing)) yTargetSpacing = 1;
+        basePower = Math.pow(10, Math.floor(Math.log10(yTargetSpacing))); // Find decimal place of spacing
+        const spacingCandidate = yCleanSpacings.find(s => basePower / s >= yTargetSpacing) ?? 1;
+        yTickInterval = basePower / spacingCandidate; // Round to clean interval (1, 0.5, 0.25, 0.1)
+
+        numYTicks = Math.max(0, Math.round(dataRange / yTickInterval) + 1);
+        const firstYTick = (Math.round(dataMax / yTickInterval)) * yTickInterval;
+        
+        // Draw the Y ticks and grid lines (reuse pooled Text labels)
         for (let i = 0; i < numYTicks; i++) {
           // Get the next tick position
-          let graphY = convertGraphToScreenY(firstYTick - (i * yTickInterval));
+          let tickY = firstYTick - (i * yTickInterval);
+          let graphY = convertGraphToScreenY(tickY);
           if (graphY > graphYMax) continue; // Skip if out of bounds
 
+          // Check if even/odd tick line
+          let isEvenTick = (i + (firstYTick / yTickInterval)) % 2 == 0;
+
           // Draw the tick line
-          graphics.moveTo(graphXMin, graphY);
-          graphics.lineTo(graphXMin - yTickLength, graphY);
-          let graphRange = graphYMax - graphYMin;
-          let dataRange = dataMax - dataMin;
+          graphicsRef.moveTo(graphXMin, graphY);
+          graphicsRef.lineTo(graphXMin - (isEvenTick ? yTickLength : yTickLength / 2), graphY);
 
-          let normalizedGraphY = (graphYMax - (graphY - graphYMin)) / graphRange;
-          let dataConvertedY = normalizedGraphY * dataRange + dataMin;
-
-          if (Math.abs(dataConvertedY) < 0.001) dataConvertedY = 0;
-
-
-          let yLabel = new Text({
-            text: dataConvertedY.toFixed(2),
-            x: leftMargin - yTickLength - 5,
-            y: graphY,
-            anchor: { x: 1, y: 0.5 }, // Right align, vertically centered
-            style: {
-              fontFamily: 'short-stack',
-              fontSize: 18
-            }
-          });
-
-          app.stage.addChild(yLabel);
-
-          graphics.stroke({ width: 2, color: 0x000000, alpha: 1 });
-
+          // Draw the tick value using a pooled Text label
+          const lbl = yLabelPool[i];
+          if (lbl) {
+            lbl.text = tickY.toFixed(2);
+            lbl.x = leftMargin - yTickLength - 5;
+            lbl.y = graphY;
+            lbl.visible = true;
+          }
+          graphicsRef.stroke({ width: 2, color: 0x000000 });
+          
           // Draw grid line for y
-          graphics.moveTo(graphXMin, graphY);
-          graphics.lineTo(graphXMax, graphY);
-
-
-          graphics.stroke({ width: 2, color: 0x000000, alpha: 0.15 });
+          graphicsRef.moveTo(graphXMin, graphY);
+          graphicsRef.lineTo(graphXMax, graphY);
+          graphicsRef.stroke({ width: 2, color: isEvenTick ? 0x888888 : 0xDDDDDD });
         }
-
+        // Hide any unused pooled labels
+        for (let i = numYTicks; i < yLabelPool.length; i++) yLabelPool[i].visible = false;
+        
         // Draw the midline
         if (convertGraphToScreenY(0) < graphYMax) {
-          graphics.moveTo(leftMargin, convertGraphToScreenY(0));
-          graphics.lineTo(graphXMax, convertGraphToScreenY(0));
+          graphicsRef.moveTo(leftMargin, convertGraphToScreenY(0));
+          graphicsRef.lineTo(graphXMax, convertGraphToScreenY(0));
+          graphicsRef.stroke({ width: 3, color: 0x000000 });
         }
 
 
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        const startingPoint = sampleCount < vertexCount ? datasets[0] : datasets[datasets.length - vertexCount];
-        graphics.moveTo(leftMargin, convertGraphToScreenY(startingPoint));
+        startingPoint = datasets.length > 0 ? (sampleCount < maxVertices ? datasets[0] : datasets[datasets.length - maxVertices]) : 0;
+        graphicsRef.moveTo(leftMargin, convertGraphToScreenY(startingPoint));
 
-        var x = 0.0, y = 0.0;
-        for (var i = 1; i < Math.min(sampleCount, vertexCount); i++) {
-          let dataPoint = sampleCount < vertexCount ? datasets[i] : datasets[datasets.length - vertexCount + i];
+        let x = 0.0, y = 0.0;
+        for (let i = 1; i < Math.min(sampleCount, maxVertices); i++) {
+          let dataPoint = sampleCount < maxVertices ? datasets[i] : datasets[datasets.length - maxVertices + i];
 
           x = convertGraphToScreenX(i);
           y = convertGraphToScreenY(dataPoint);
 
-          graphics.circle(x, y, 1);
+          graphicsRef.circle(x, y, 1);
         }
-        graphics.stroke({ width: 2, color: 0x000000, alpha: 1 });
-        graphics.closePath();
-        
-        app.stage.addChild(graphics);
+        graphicsRef.stroke({ width: 2, color: 0x000000 });
+
+
+        ///// Axis lines /////
+
+        // Draw the y-axis
+        graphicsRef.moveTo(leftMargin, 0);
+        graphicsRef.lineTo(leftMargin, windowSize - bottomMargin);
+        graphicsRef.stroke({ width: 2, color: 0x000000 });
+              
+        // Draw the x-axis
+        graphicsRef.moveTo(leftMargin, windowSize - bottomMargin);
+        graphicsRef.lineTo(windowSize, windowSize - bottomMargin);
+        graphicsRef.stroke({ width: 2, color: 0x000000 });
+
+
+        ///// Finish up /////
+        graphicsRef.closePath();
       };
 
 
 
       ////////// Coordinate conversions //////////
       function convertGraphToScreenX(x: number): number {
-        return x * ((windowSize - leftMargin) / vertexCount) + leftMargin;
+        return x * ((windowSize - leftMargin) / maxVertices) + leftMargin;
       }
 
       function convertGraphToScreenY(y: number): number {
-        return (windowSize - bottomMargin) - (((y - dataMin) / (dataMax - dataMin)) * (windowSize - bottomMargin));
+        const dataRange = isFinite(dataMax) && isFinite(dataMin) && dataMax !== dataMin ? dataMax - dataMin : 1;
+        return (windowSize - bottomMargin) - (((y - dataMin) / dataRange) * (windowSize - bottomMargin));
       }
 
 
@@ -204,31 +240,42 @@ export default function DotPlot(): JSX.Element {
       window.addEventListener('resize', resizeHandler);
 
       // Append the application canvas to the document body
-      pixiContainerRef.current.appendChild(app.canvas);
+      const container = pixiContainerRef.current;
+      if (container) container.appendChild((app.view as any) ?? (app as any).canvas);
 
       // Utilized to call the draw - 60fps
-      app.ticker.add(() => {
+      const tickerCallback = () => {
+        draw(); // Call the drawing function
 
-        draw();
-        angle += 0.1
-        // if (Math.sin(angle) > 0.99) datasets.push(1);
-        // else if (Math.sin(angle) < -0.99) datasets.push(-1);
-        // else datasets.push(Math.sin(angle));
-        datasets.push(Math.sin(angle) + Math.sin(angle/5));
+        angle += 0.1; // Increment angle for data generation
+        datasets.push(Math.sin(angle) + 3 * Math.sin(angle/5));
+        if (datasets.length > maxVertices) datasets.shift(); // Remove excess data
 
         sampleCount++;
-        if (sampleCount > vertexCount)
-          xTickOffset += (1 / (sampleCount < vertexCount ? sampleCount : vertexCount)) * (windowSize - leftMargin);
-
-
-        // }
-      });
+        if (sampleCount > maxVertices)
+          xTickOffset += (1 / (sampleCount < maxVertices ? sampleCount : maxVertices)) * (windowSize - leftMargin);
+      };
+      app.ticker.add(tickerCallback);
     };
 
     initPixiApp();
     return () => {
       // Remove resize event listener
       window.removeEventListener('resize', resizeHandler);
+
+      // Try to gracefully stop and destroy PIXI app if it exists
+      try {
+        // app was created inside initPixiApp. If still present on the stage, stop/destroy it.
+        // We access the global PIXI application via the stage children if needed.
+        const container = pixiContainerRef.current;
+        // Find any PIXI view inside the container and remove/destroy
+        if (container) {
+          const view = container.querySelector('canvas');
+          if (view) container.removeChild(view);
+        }
+      } catch (e) {
+        // ignore cleanup errors
+      }
     };
   }, []);
 
