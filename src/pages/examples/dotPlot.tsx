@@ -9,30 +9,49 @@ import styles from '../css/examples.module.css';
 
 var resizeHandler: EventListener | any;
 
+// Data state
+type State = {
+  data: Data;
+}
+
+// Data point
+type Data = {
+  rpm: Buffer;
+  tps: Buffer;
+}
+
+
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
-  
+
   // Graph bounds
-  const leftMargin = 65;
-  const bottomMargin = 50;
+  const LEFT_MARGIN = 65;
+  const RIGHT_MARGIN = 25;
+  const BOTTOM_MARGIN = 50;
+  const TOP_MARGIN = 25;
+  const GRAPH_MARGIN = 25;
   var windowSize: number;
-  var dataMax = -Infinity;
-  var dataMin = Infinity;
+  var xDataMax = -Infinity, xDataMin = Infinity;
+  var yDataMax = -Infinity, yDataMin = Infinity;
+  var graphXMin = 0, graphXMax = 0;
+  var graphYMin = 0, graphYMax = 0;
+  
+  // Graph tick spacing
+  const CLEAN_SPACINGS = [1, 0.4, 0.2, 0.1];
 
   // Graph X ticks
-  const numXTicks = 5;
-  const xTickLength = 20;
-  var xTickInterval = 0, xTickOffset = 0;
+  const X_TICK_LEN = 10;
+  var xTickInterval = 0, xTargetSpacing = 0, xBasePower = 0, numXTicks = 0;
   
   // Graph Y ticks
-  const yCleanSpacings = [1, 0.4, 0.2, 0.1];
-  const yTickLength = 10;
-  var yTickInterval = 0, yTargetSpacing = 0, basePower = 0, numYTicks = 0;
+  const Y_TICK_LEN = 10;
+  var yTickInterval = 0, yTargetSpacing = 0, yBasePower = 0, numYTicks = 0;
 
   // Graph data
-  const maxVertices = 100;
+  const MAX_VERTICES = 1000;
   var datasets = [];
-  var startingPoint = 0;
+  var currentState = { data: { rpm: 0, tps: 0 } };
+  var startingPoint = { rpm: 0, tps: 0 };
   var angle = 0;
   var sampleCount = 0;
   
@@ -41,6 +60,7 @@ export default function DotPlot(): JSX.Element {
       // Local refs so cleanup can access them
       let appRef: Application | null = null;
       let graphicsRef: Graphics | null = null;
+      const xLabelPool: Text[] = [];
       const yLabelPool: Text[] = [];
       let createdTexts = 0;
       let createdGraphics = 0;
@@ -58,13 +78,21 @@ export default function DotPlot(): JSX.Element {
       app.stage.addChild(graphicsRef);
 
       // Prepare a small pool of Y-label Text objects and reuse them every frame
-      const maxYLabelPool = 48; // reasonable upper bound for ticks
-      for (let i = 0; i < maxYLabelPool; i++) {
+      const MAX_AXIS_LABELS = 48; // reasonable upper bound for ticks
+      for (let i = 0; i < MAX_AXIS_LABELS; i++) {
         const lbl = new Text('', { fontFamily: 'short-stack', fontSize: 18 });
         lbl.anchor = { x: 1, y: 0.5 } as any;
         lbl.visible = false;
         app.stage.addChild(lbl);
         yLabelPool.push(lbl);
+        createdTexts++;
+      }
+      for (let i = 0; i < MAX_AXIS_LABELS; i++) {
+        const lbl = new Text('', { fontFamily: 'short-stack', fontSize: 18 });
+        lbl.anchor = { x: 0.5, y: 0 } as any;
+        lbl.visible = false;
+        app.stage.addChild(lbl);
+        xLabelPool.push(lbl);
         createdTexts++;
       }
 
@@ -76,97 +104,134 @@ export default function DotPlot(): JSX.Element {
 
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
-        dataMax = -Infinity;
-        dataMin = Infinity;
+        xDataMax = -Infinity, xDataMin = Infinity;
+        yDataMax = -Infinity, yDataMin = Infinity;
         
         // Resize the graph bounds to fit the shown points
-        for (let i = 1; i < Math.min(sampleCount, maxVertices); i++) {
-          let dataPoint = sampleCount < maxVertices ? datasets[i] : datasets[datasets.length - maxVertices + i];
+        for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+          let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
           
-          dataMax = Math.max(dataPoint, dataMax);
-          dataMin = Math.min(dataPoint, dataMin);
+          xDataMax = Math.max(dataPoint.tps, xDataMax);
+          xDataMin = Math.min(dataPoint.tps, xDataMin);
+          yDataMax = Math.max(dataPoint.rpm, yDataMax);
+          yDataMin = Math.min(dataPoint.rpm, yDataMin);
         }
         
         // Update the drawing bounds
-        const graphXMin = 0 + leftMargin;
-        const graphYMin = 0;
-        const graphXMax = windowSize;
-        const graphYMax = windowSize - bottomMargin;
+        graphXMin = LEFT_MARGIN;
+        graphYMin = TOP_MARGIN;
+        graphXMax = windowSize - RIGHT_MARGIN;
+        graphYMax = windowSize - BOTTOM_MARGIN;
         
         
         ///// X Tick lines /////
         
-        // Prepare X tick lines
-        xTickInterval = (graphXMax - leftMargin) / numXTicks;
+        // Prepare X tick lines with guards to avoid NaN/Infinity
+        const xDataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : 1;
+        xTargetSpacing = xDataRange / 10.0; // Split range into roughly 5-10 ticks
+        if (xTargetSpacing <= 0 || !isFinite(xTargetSpacing)) xTargetSpacing = 1;
+        xBasePower = Math.pow(10, Math.floor(Math.log10(xTargetSpacing))); // Find decimal place of spacing
+        const xSpacingCandidate = CLEAN_SPACINGS.find(s => xBasePower / s >= xTargetSpacing) ?? 1;
+        xTickInterval = xBasePower / xSpacingCandidate; // Round to clean interval (1, 0.5, 0.25, 0.1)
+
+        numXTicks = Math.max(0, Math.round(xDataRange / xTickInterval) + 2); // Overestimate to be safe
+        const firstXTick = (Math.round(xDataMax / xTickInterval)) * xTickInterval;
         
-        // Draw the X ticks and grid lines
+        // Draw the X ticks and grid lines (reuse pooled Text labels)
         for (let i = 0; i < numXTicks; i++) {
-          let x = (leftMargin) + i * xTickInterval - xTickOffset;
-          x = x % (graphXMax - graphXMin);
-          if (x < graphXMin)
-            x = graphXMax + x;
-          
-          // Draw X tick
-          graphicsRef.moveTo(x, graphYMax);
-          graphicsRef.lineTo(x, graphYMax + xTickLength / (i % 2 + 1));
+          // Get the next tick position
+          let tickX = firstXTick - (i * xTickInterval);
+          let graphX = convertGraphToScreenX(tickX);
+          let isWithinBounds = (graphX <= graphXMax + 1 && graphX >= graphXMin - 1);
+
+          // Check if even/odd tick line
+          let isEvenTick = (i + (firstXTick / xTickInterval)) % 2 == 0;
+
+          // Only draw if within bounds
+          if (isWithinBounds) {
+            // Draw the tick line
+            graphicsRef.moveTo(graphX, windowSize - BOTTOM_MARGIN);
+            graphicsRef.lineTo(graphX, windowSize - BOTTOM_MARGIN + (isEvenTick ? X_TICK_LEN : X_TICK_LEN / 2));
+            graphicsRef.stroke({ width: 2, color: 0x000000 });
+            
+            // Draw grid line for x
+            graphicsRef.moveTo(graphX, graphYMin);
+            graphicsRef.lineTo(graphX, graphYMax);
+            graphicsRef.stroke({ width: 2, color: 0x000000, alpha: isEvenTick ? 0x888888 : 0xDDDDDD });
+          }
+
+          // Draw the tick value using a pooled Text label
+          const lbl = xLabelPool[i];
+          if (lbl) {
+            lbl.text = tickX.toFixed(2);
+            lbl.x = graphX;
+            lbl.y = windowSize - (BOTTOM_MARGIN - X_TICK_LEN - 5);
+            lbl.visible = isWithinBounds;
+          }
           graphicsRef.stroke({ width: 2, color: 0x000000 });
-          
-          // Draw grid line for X
-          graphicsRef.moveTo(x, graphYMin);
-          graphicsRef.lineTo(x, graphYMax);
-          graphicsRef.stroke({ width: 2, color: 0xCCCCCC });
         }
+        // Hide any unused pooled labels
+        for (let i = numXTicks; i < xLabelPool.length; i++) xLabelPool[i].visible = false;
 
 
         ///// Y Tick lines /////
         
         // Prepare Y tick lines with guards to avoid NaN/Infinity
-        const dataRange = isFinite(dataMax) && isFinite(dataMin) && dataMax !== dataMin ? dataMax - dataMin : 1;
-        yTargetSpacing = dataRange / 10.0; // Split range into roughly 5-10 ticks
+        const yDataRange = isFinite(yDataMax) && isFinite(yDataMin) && yDataMax !== yDataMin ? yDataMax - yDataMin : 1;
+        yTargetSpacing = yDataRange / 10.0; // Split range into roughly 5-10 ticks
         if (yTargetSpacing <= 0 || !isFinite(yTargetSpacing)) yTargetSpacing = 1;
-        basePower = Math.pow(10, Math.floor(Math.log10(yTargetSpacing))); // Find decimal place of spacing
-        const spacingCandidate = yCleanSpacings.find(s => basePower / s >= yTargetSpacing) ?? 1;
-        yTickInterval = basePower / spacingCandidate; // Round to clean interval (1, 0.5, 0.25, 0.1)
+        yBasePower = Math.pow(10, Math.floor(Math.log10(yTargetSpacing))); // Find decimal place of spacing
+        const spacingCandidate = CLEAN_SPACINGS.find(s => yBasePower / s >= yTargetSpacing) ?? 1;
+        yTickInterval = yBasePower / spacingCandidate; // Round to clean interval (1, 0.5, 0.25, 0.1)
 
-        numYTicks = Math.max(0, Math.round(dataRange / yTickInterval) + 1);
-        const firstYTick = (Math.round(dataMax / yTickInterval)) * yTickInterval;
+        numYTicks = Math.max(0, Math.round(yDataRange / yTickInterval) + 2); // Overestimate to be safe
+        const firstYTick = (Math.round(yDataMax / yTickInterval)) * yTickInterval;
         
         // Draw the Y ticks and grid lines (reuse pooled Text labels)
         for (let i = 0; i < numYTicks; i++) {
           // Get the next tick position
           let tickY = firstYTick - (i * yTickInterval);
           let graphY = convertGraphToScreenY(tickY);
-          if (graphY > graphYMax) continue; // Skip if out of bounds
+          let isWithinBounds = (graphY <= graphYMax + 1 && graphY >= graphYMin - 1);
 
           // Check if even/odd tick line
           let isEvenTick = (i + (firstYTick / yTickInterval)) % 2 == 0;
 
-          // Draw the tick line
-          graphicsRef.moveTo(graphXMin, graphY);
-          graphicsRef.lineTo(graphXMin - (isEvenTick ? yTickLength : yTickLength / 2), graphY);
-
+          // Only draw if within bounds
+          if (isWithinBounds) {
+            // Draw the tick line
+            graphicsRef.moveTo(graphXMin, graphY);
+            graphicsRef.lineTo(graphXMin - (isEvenTick ? Y_TICK_LEN : Y_TICK_LEN / 2), graphY);
+            graphicsRef.stroke({ width: 2, color: 0x000000 });
+            
+            // Draw grid line for y
+            graphicsRef.moveTo(graphXMin, graphY);
+            graphicsRef.lineTo(graphXMax, graphY);
+            graphicsRef.stroke({ width: 2, color: 0x000000, alpha: isEvenTick ? 0x888888 : 0xDDDDDD });
+          }
+          
           // Draw the tick value using a pooled Text label
           const lbl = yLabelPool[i];
           if (lbl) {
             lbl.text = tickY.toFixed(2);
-            lbl.x = leftMargin - yTickLength - 5;
+            lbl.x = LEFT_MARGIN - Y_TICK_LEN - 5;
             lbl.y = graphY;
-            lbl.visible = true;
+            lbl.visible = isWithinBounds;
           }
           graphicsRef.stroke({ width: 2, color: 0x000000 });
-          
-          // Draw grid line for y
-          graphicsRef.moveTo(graphXMin, graphY);
-          graphicsRef.lineTo(graphXMax, graphY);
-          graphicsRef.stroke({ width: 2, color: isEvenTick ? 0x888888 : 0xDDDDDD });
         }
         // Hide any unused pooled labels
         for (let i = numYTicks; i < yLabelPool.length; i++) yLabelPool[i].visible = false;
         
-        // Draw the midline
-        if (convertGraphToScreenY(0) < graphYMax) {
-          graphicsRef.moveTo(leftMargin, convertGraphToScreenY(0));
+        // Draw the midlines
+        if (convertGraphToScreenY(0) <= graphYMax && convertGraphToScreenY(0) >= graphYMin) {
+          graphicsRef.moveTo(graphXMin, convertGraphToScreenY(0));
           graphicsRef.lineTo(graphXMax, convertGraphToScreenY(0));
+          graphicsRef.stroke({ width: 3, color: 0x000000 });
+        }
+        if (convertGraphToScreenX(0) <= graphXMax && convertGraphToScreenX(0) >= graphXMin) {
+          graphicsRef.moveTo(convertGraphToScreenX(0), graphYMin);
+          graphicsRef.lineTo(convertGraphToScreenX(0), graphYMax);
           graphicsRef.stroke({ width: 3, color: 0x000000 });
         }
 
@@ -174,33 +239,24 @@ export default function DotPlot(): JSX.Element {
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        startingPoint = datasets.length > 0 ? (sampleCount < maxVertices ? datasets[0] : datasets[datasets.length - maxVertices]) : 0;
-        graphicsRef.moveTo(leftMargin, convertGraphToScreenY(startingPoint));
+        startingPoint = datasets.length > 0 ? (sampleCount < MAX_VERTICES ? datasets[0] : datasets[datasets.length - MAX_VERTICES]) : { rpm: 0, tps: 0 };
+        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.tps), convertGraphToScreenY(startingPoint.rpm));
 
         let x = 0.0, y = 0.0;
-        for (let i = 1; i < Math.min(sampleCount, maxVertices); i++) {
-          let dataPoint = sampleCount < maxVertices ? datasets[i] : datasets[datasets.length - maxVertices + i];
+        for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+          let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
 
-          x = convertGraphToScreenX(i);
-          y = convertGraphToScreenY(dataPoint);
+          x = convertGraphToScreenX(dataPoint.tps);
+          y = convertGraphToScreenY(dataPoint.rpm);
 
           graphicsRef.circle(x, y, 1);
+          graphicsRef.stroke({ width: 2, color: 0x000000, alpha: ((i + MAX_VERTICES - Math.min(sampleCount, MAX_VERTICES)) / MAX_VERTICES) });
         }
+
+
+        ///// Graph Box /////
+        graphicsRef.rect(graphXMin, graphYMin, graphXMax - graphXMin, graphYMax - graphYMin);
         graphicsRef.stroke({ width: 2, color: 0x000000 });
-
-
-        ///// Axis lines /////
-
-        // Draw the y-axis
-        graphicsRef.moveTo(leftMargin, 0);
-        graphicsRef.lineTo(leftMargin, windowSize - bottomMargin);
-        graphicsRef.stroke({ width: 2, color: 0x000000 });
-              
-        // Draw the x-axis
-        graphicsRef.moveTo(leftMargin, windowSize - bottomMargin);
-        graphicsRef.lineTo(windowSize, windowSize - bottomMargin);
-        graphicsRef.stroke({ width: 2, color: 0x000000 });
-
 
         ///// Finish up /////
         graphicsRef.closePath();
@@ -210,12 +266,15 @@ export default function DotPlot(): JSX.Element {
 
       ////////// Coordinate conversions //////////
       function convertGraphToScreenX(x: number): number {
-        return x * ((windowSize - leftMargin) / maxVertices) + leftMargin;
+        const dataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : 1;
+        const graphRange = isFinite(graphXMax) && isFinite(graphXMin) && graphXMax !== graphXMin ? graphXMax - graphXMin: 1;
+        return (graphXMin + GRAPH_MARGIN) + (((x - xDataMin) / dataRange) * (graphRange - (2 * GRAPH_MARGIN)));
       }
 
       function convertGraphToScreenY(y: number): number {
-        const dataRange = isFinite(dataMax) && isFinite(dataMin) && dataMax !== dataMin ? dataMax - dataMin : 1;
-        return (windowSize - bottomMargin) - (((y - dataMin) / dataRange) * (windowSize - bottomMargin));
+        const dataRange = isFinite(yDataMax) && isFinite(yDataMin) && yDataMax !== yDataMin ? yDataMax - yDataMin : 1;
+        const graphRange = isFinite(graphYMax) && isFinite(graphYMin) && graphYMax !== graphYMin ? graphYMax - graphYMin: 1;
+        return (graphYMax - GRAPH_MARGIN) - (((y - yDataMin) / dataRange) * (graphRange - (2 * GRAPH_MARGIN)));
       }
 
 
@@ -247,13 +306,18 @@ export default function DotPlot(): JSX.Element {
       const tickerCallback = () => {
         draw(); // Call the drawing function
 
+        // Create new data state
         angle += 0.1; // Increment angle for data generation
-        datasets.push(Math.sin(angle) + 3 * Math.sin(angle/5));
-        if (datasets.length > maxVertices) datasets.shift(); // Remove excess data
+        currentState = { data: {
+          tps: Math.cos(angle) + 3 * Math.sin(angle/5),
+          rpm: Math.sin(angle/3) + 3 * Math.sin(angle/4)
+          // tps: Math.cos(angle),
+          // rpm: Math.sin(angle)
+        } };
+        datasets.push(currentState.data);
+        // if (datasets.length > maxVertices) datasets.shift(); // Remove excess data
 
         sampleCount++;
-        if (sampleCount > maxVertices)
-          xTickOffset += (1 / (sampleCount < maxVertices ? sampleCount : maxVertices)) * (windowSize - leftMargin);
       };
       app.ticker.add(tickerCallback);
     };
