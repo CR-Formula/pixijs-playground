@@ -6,23 +6,17 @@ import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
+import TelemetryModel from '@site/src/models/telemetryModel';
 
 var resizeHandler: EventListener | any;
 
-// Data state
-type State = {
-  data: Data;
-}
-
-// Data point
-type Data = {
-  rpm: Buffer;
-  tps: Buffer;
-}
 
 
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
+
+  // Model
+  const model = new TelemetryModel();
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -54,8 +48,8 @@ export default function DotPlot(): JSX.Element {
   // Graph data
   const MAX_VERTICES = 1000;
   var datasets = [];
-  var currentState = { data: { rpm: 0, tps: 0 } };
-  var startingPoint = { rpm: 0, tps: 0 };
+  var currentState = { Longitude: 0, Latitude: 0 };
+  var startingPoint = { Longitude: 0, Latitude: 0 };
   var angle = 0;
   var sampleCount = 0;
   
@@ -111,6 +105,9 @@ export default function DotPlot(): JSX.Element {
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
 
+      // Link datasets to model
+      datasets = model.gpsData;
+
 
 
       ////////// Draw function - called continuously (60fps) //////////
@@ -134,10 +131,10 @@ export default function DotPlot(): JSX.Element {
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
           let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
           
-          xDataMax = Math.max(dataPoint.tps, xDataMax);
-          xDataMin = Math.min(dataPoint.tps, xDataMin);
-          yDataMax = Math.max(dataPoint.rpm, yDataMax);
-          yDataMin = Math.min(dataPoint.rpm, yDataMin);
+          xDataMax = Math.max(dataPoint.Longitude, xDataMax);
+          xDataMin = Math.min(dataPoint.Longitude, xDataMin);
+          yDataMax = Math.max(dataPoint.Latitude, yDataMax);
+          yDataMin = Math.min(dataPoint.Latitude, yDataMin);
         }
 
         // Ensure minimum graph size
@@ -268,15 +265,15 @@ export default function DotPlot(): JSX.Element {
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        startingPoint = datasets.length > 0 ? (sampleCount < MAX_VERTICES ? datasets[0] : datasets[datasets.length - MAX_VERTICES]) : { rpm: 0, tps: 0 };
-        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.tps), convertGraphToScreenY(startingPoint.rpm));
+        startingPoint = datasets.length > 0 ? (sampleCount < MAX_VERTICES ? datasets[0] : datasets[datasets.length - MAX_VERTICES]) : { Longitude: 0, Latitude: 0 };
+        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Longitude), convertGraphToScreenY(startingPoint.Latitude));
 
         let x = 0.0, y = 0.0;
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
           let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
 
-          x = convertGraphToScreenX(dataPoint.tps);
-          y = convertGraphToScreenY(dataPoint.rpm);
+          x = convertGraphToScreenX(dataPoint.Longitude);
+          y = convertGraphToScreenY(dataPoint.Latitude);
 
           graphicsRef.circle(x, y, 1);
           graphicsRef.stroke({ width: 2, color: 0x000000, alpha: ((i + MAX_VERTICES - Math.min(sampleCount, MAX_VERTICES)) / MAX_VERTICES) });
@@ -336,14 +333,17 @@ export default function DotPlot(): JSX.Element {
         draw(); // Call the drawing function
 
         // Create new data state
-        angle += 0.1; // Increment angle for data generation
-        currentState = { data: {
-          tps: Math.cos(angle) + 3 * Math.sin(angle/5),
-          rpm: Math.sin(angle/3) + 3 * Math.sin(angle/4)
-        } };
-        datasets.push(currentState.data);
+        // angle += 0.1; // Increment angle for data generation
+        // currentState = { data: {
+        //   tps: Math.cos(angle) + 3 * Math.sin(angle/5),
+        //   rpm: Math.sin(angle/3) + 3 * Math.sin(angle/4)
+        // } };
+        // datasets.push(currentState.data);
 
-        sampleCount++;
+        // sampleCount++;
+
+        // model.gpsData.push(model.generateSample());
+        sampleCount = datasets.length;
       };
       app.ticker.add(tickerCallback);
     };
