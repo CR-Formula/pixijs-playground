@@ -25,11 +25,15 @@ export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
 
   // Graph bounds
-  const LEFT_MARGIN = 65;
+  const LEFT_MARGIN = 90;
   const RIGHT_MARGIN = 25;
-  const BOTTOM_MARGIN = 50;
+  const BOTTOM_MARGIN = 70;
   const TOP_MARGIN = 25;
   const GRAPH_MARGIN = 25;
+  const X_MIN_LIMIT = -2;
+  const X_MAX_LIMIT = 2;
+  const Y_MIN_LIMIT = -2;
+  const Y_MAX_LIMIT = 2;
   var windowSize: number;
   var xDataMax = -Infinity, xDataMin = Infinity;
   var yDataMax = -Infinity, yDataMin = Infinity;
@@ -78,7 +82,7 @@ export default function DotPlot(): JSX.Element {
       app.stage.addChild(graphicsRef);
 
       // Prepare a small pool of Y-label Text objects and reuse them every frame
-      const MAX_AXIS_LABELS = 48; // reasonable upper bound for ticks
+      const MAX_AXIS_LABELS = 20; // reasonable upper bound for ticks
       for (let i = 0; i < MAX_AXIS_LABELS; i++) {
         const lbl = new Text('', { fontFamily: 'short-stack', fontSize: 18 });
         lbl.anchor = { x: 1, y: 0.5 } as any;
@@ -96,6 +100,19 @@ export default function DotPlot(): JSX.Element {
         createdTexts++;
       }
 
+      // X axis name
+      const xAxisTitle = new Text('TPS', { fontFamily: 'arial', fontSize: 18 });
+      xAxisTitle.anchor = { x: 0.5, y: 0.5 };
+      app.stage.addChild(xAxisTitle);
+      
+      // Y axis name
+      const yAxisTitle = new Text('RPM', { fontFamily: 'arial', fontSize: 18 });
+      yAxisTitle.anchor = { x: 0.5, y: 0.5 };
+      yAxisTitle.rotation = -Math.PI / 2;
+      app.stage.addChild(yAxisTitle);
+
+
+
       ////////// Draw function - called continuously (60fps) //////////
       const draw = () => {
         ///// Initialization /////
@@ -106,6 +123,12 @@ export default function DotPlot(): JSX.Element {
         graphicsRef.clear();
         xDataMax = -Infinity, xDataMin = Infinity;
         yDataMax = -Infinity, yDataMin = Infinity;
+
+        // Update axis positions
+        xAxisTitle.x = (windowSize + LEFT_MARGIN - RIGHT_MARGIN) / 2;
+        xAxisTitle.y = windowSize - 15;
+        yAxisTitle.x = 15;
+        yAxisTitle.y = (windowSize + TOP_MARGIN - BOTTOM_MARGIN) / 2;
         
         // Resize the graph bounds to fit the shown points
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
@@ -116,6 +139,12 @@ export default function DotPlot(): JSX.Element {
           yDataMax = Math.max(dataPoint.rpm, yDataMax);
           yDataMin = Math.min(dataPoint.rpm, yDataMin);
         }
+
+        // Ensure minimum graph size
+        xDataMin = Math.min(xDataMin, X_MIN_LIMIT);
+        xDataMax = Math.max(xDataMax, X_MAX_LIMIT);
+        yDataMin = Math.min(yDataMin, Y_MIN_LIMIT);
+        yDataMax = Math.max(yDataMax, Y_MAX_LIMIT);
         
         // Update the drawing bounds
         graphXMin = LEFT_MARGIN;
@@ -128,7 +157,7 @@ export default function DotPlot(): JSX.Element {
         
         // Prepare X tick lines with guards to avoid NaN/Infinity
         const xDataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : 1;
-        xTargetSpacing = xDataRange / 10.0; // Split range into roughly 5-10 ticks
+        xTargetSpacing = xDataRange / ((windowSize - LEFT_MARGIN - RIGHT_MARGIN) / 45.0); // Split range based on screen size
         if (xTargetSpacing <= 0 || !isFinite(xTargetSpacing)) xTargetSpacing = 1;
         xBasePower = Math.pow(10, Math.floor(Math.log10(xTargetSpacing))); // Find decimal place of spacing
         const xSpacingCandidate = CLEAN_SPACINGS.find(s => xBasePower / s >= xTargetSpacing) ?? 1;
@@ -178,7 +207,7 @@ export default function DotPlot(): JSX.Element {
         
         // Prepare Y tick lines with guards to avoid NaN/Infinity
         const yDataRange = isFinite(yDataMax) && isFinite(yDataMin) && yDataMax !== yDataMin ? yDataMax - yDataMin : 1;
-        yTargetSpacing = yDataRange / 10.0; // Split range into roughly 5-10 ticks
+        yTargetSpacing = yDataRange / ((windowSize - TOP_MARGIN - BOTTOM_MARGIN) / 45.0); // Split range based on screen size
         if (yTargetSpacing <= 0 || !isFinite(yTargetSpacing)) yTargetSpacing = 1;
         yBasePower = Math.pow(10, Math.floor(Math.log10(yTargetSpacing))); // Find decimal place of spacing
         const spacingCandidate = CLEAN_SPACINGS.find(s => yBasePower / s >= yTargetSpacing) ?? 1;
@@ -311,11 +340,8 @@ export default function DotPlot(): JSX.Element {
         currentState = { data: {
           tps: Math.cos(angle) + 3 * Math.sin(angle/5),
           rpm: Math.sin(angle/3) + 3 * Math.sin(angle/4)
-          // tps: Math.cos(angle),
-          // rpm: Math.sin(angle)
         } };
         datasets.push(currentState.data);
-        // if (datasets.length > maxVertices) datasets.shift(); // Remove excess data
 
         sampleCount++;
       };
@@ -329,9 +355,8 @@ export default function DotPlot(): JSX.Element {
 
       // Try to gracefully stop and destroy PIXI app if it exists
       try {
-        // app was created inside initPixiApp. If still present on the stage, stop/destroy it.
-        // We access the global PIXI application via the stage children if needed.
         const container = pixiContainerRef.current;
+
         // Find any PIXI view inside the container and remove/destroy
         if (container) {
           const view = container.querySelector('canvas');
