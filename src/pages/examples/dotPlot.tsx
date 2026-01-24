@@ -1,4 +1,4 @@
-import { Application, Graphics, mapFormatToGlInternalFormat, Text } from 'pixi.js';
+import { Application, Graphics, mapFormatToGlInternalFormat, Particle, ParticleContainer, Text, Texture } from 'pixi.js';
 import { JSX, useEffect, useRef } from 'react';
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
@@ -68,18 +68,35 @@ export default function DotPlot(): JSX.Element {
       const yLabelPool: Text[] = [];
       let createdTexts = 0;
       let createdGraphics = 0;
-
+      const partContainer: ParticleContainer = new ParticleContainer({ dynamicProperties: { position: true, color: true } } );
+      const particles: Particle[] = [];
+      
       // Create a new application
       const app = new Application();
       appRef = app;
       
       // Initialize the application
       await app.init({ background: '#FFFFFF', antialias: true });
-
+      
       // Create and reuse a single Graphics instance (or a small set of layers)
       graphicsRef = new Graphics();
       createdGraphics++;
       app.stage.addChild(graphicsRef);
+    
+      // Create plot point texture
+      const pointGraphics: Graphics = new Graphics();
+      pointGraphics.circle(0, 0, 1);
+      pointGraphics.stroke({ width: 4, color: 0x000000 });
+      const pointTex: Texture = app.renderer.generateTexture(pointGraphics);
+      app.stage.addChild(partContainer);
+
+      // Initialize particles (data points)
+      for (let i = 0; i < MAX_VERTICES; i++) {
+        const p: Particle = new Particle({ texture: pointTex, x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 });
+        p.color = 0x00000000;
+        partContainer.addParticle(p);
+        particles.push(p);
+      }
 
       // Prepare a small pool of Y-label Text objects and reuse them every frame
       const MAX_AXIS_LABELS = 20; // reasonable upper bound for ticks
@@ -278,8 +295,9 @@ export default function DotPlot(): JSX.Element {
           x = convertGraphToScreenX(dataPoint.tps);
           y = convertGraphToScreenY(dataPoint.rpm);
 
-          graphicsRef.circle(x, y, 1);
-          graphicsRef.stroke({ width: 2, color: 0x000000, alpha: ((i + MAX_VERTICES - Math.min(sampleCount, MAX_VERTICES)) / MAX_VERTICES) });
+          particles[i].x = x;
+          particles[i].y = y;
+          particles[i].alpha = ((i + MAX_VERTICES - Math.min(sampleCount, MAX_VERTICES)) / MAX_VERTICES);
         }
 
 
