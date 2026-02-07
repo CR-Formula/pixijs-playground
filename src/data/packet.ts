@@ -1,7 +1,7 @@
 /**
  * Defines a generic LoRa packet recorded from the car.
  */
-interface Packet {
+export interface Packet {
   /** The ID of the recorded LoRa packet. */
   PacketID: number;
   

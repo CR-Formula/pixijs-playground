@@ -1,3 +1,5 @@
+import { BrakesAccelPacket } from "../data/brakesAccelPacket";
+
 export class BrakesAccelModel {
   private dataHz: number = 10;
   public brakesAccelData : BrakesAccelPacket[] = [];
@@ -23,7 +25,7 @@ export class BrakesAccelModel {
 
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
-    window.setInterval(() => {
+    globalThis.setInterval(() => {
       this.brakesAccelData.push(this.generateSample());
     }, period);
   }

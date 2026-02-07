@@ -1,16 +1,21 @@
-import { BrakesAccelModel } from "./brakesAccelModel";
-import { EngineDataModel } from "./engineDataModel";
-import { GPSModel } from "./gpsModel";
-import { SuspensionModel } from "./suspensionModel";
-import { TemperatureModel } from "./temperatureModel";
+import { BrakesAccelModel } from "./brakesAccelModel.ts";
+import { EngineDataModel } from "./engineDataModel.ts";
+import { GPSModel } from "./gpsModel.ts";
+import { SuspensionModel } from "./suspensionModel.ts";
+import { TemperatureModel } from "./temperatureModel.ts";
+import { BrakesAccelPacket } from "../data/brakesAccelPacket.ts";
+import { EngineDataPacket } from "../data/engineDataPacket.ts";
+import { GPSPacket } from "../data/gpsPacket.ts";
+import { SuspensionPacket } from "../data/suspensionPacket.ts";
+import { TemperaturePacket } from "../data/temperaturePacket.ts";
 
 export default class TelemetryModel {
   // Models
-  private suspensionModel  = new SuspensionModel();  // 50 Hz
-  private gpsModel         = new GPSModel();         // 25 Hz
-  private engineDataModel  = new EngineDataModel();  // 20 Hz
-  private brakesAccelModel = new BrakesAccelModel(); // 10 Hz
-  private temperatureModel = new TemperatureModel(); // 1 Hz
+  public suspensionModel  = new SuspensionModel();  // 50 Hz
+  public gpsModel         = new GPSModel();         // 25 Hz
+  public engineDataModel  = new EngineDataModel();  // 20 Hz
+  public brakesAccelModel = new BrakesAccelModel(); // 10 Hz
+  public temperatureModel = new TemperatureModel(); // 1 Hz
 
   // Data lists
   public suspensionData:  SuspensionPacket[] = [];

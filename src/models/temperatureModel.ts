@@ -1,3 +1,5 @@
+import { TemperaturePacket } from "../data/temperaturePacket";
+
 export class TemperatureModel {
   private dataHz: number = 1;
   public temperatureData : TemperaturePacket[] = [];
@@ -19,7 +21,7 @@ export class TemperatureModel {
 
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
-    window.setInterval(() => {
+    globalThis.setInterval(() => {
       this.temperatureData.push(this.generateSample());
     }, period);
   }

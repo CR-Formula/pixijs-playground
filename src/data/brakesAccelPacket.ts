@@ -1,10 +1,12 @@
+import { Packet } from "./packet";
+
 /**
  * Defines a LoRa Packet with Oil Pressure, Brake Temperatures,
  * and Accelerometer data.
  * 
  * 10 Hz packet with ID 0x04.
  */
-interface BrakesAccelPacket extends Packet {
+export interface BrakesAccelPacket extends Packet {
   /** Pressure of the oil. */
   OilPressure: number;
 

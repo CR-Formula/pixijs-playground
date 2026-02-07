@@ -1,10 +1,12 @@
+import { Packet } from "./packet";
+
 /**
  * Defines a LoRa Packet with Engine RPM, Throttle Positon,
  * Steering Angle, and Brake Pressure.
  * 
  * 20 Hz packet with ID 0x03.
  */
-interface EngineDataPacket extends Packet {
+export interface EngineDataPacket extends Packet {
   /** Recorded pressure of the brakes. */
   BrakePressure: number;
 

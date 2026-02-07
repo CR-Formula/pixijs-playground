@@ -1,3 +1,5 @@
+import { EngineDataPacket } from "../data/engineDataPacket";
+
 export class EngineDataModel {
   private dataHz: number = 20;
   public engineData : EngineDataPacket[] = [];
@@ -23,7 +25,7 @@ export class EngineDataModel {
 
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
-    window.setInterval(() => {
+    globalThis.setInterval(() => {
       this.engineData.push(this.generateSample());
     }, period);
   }

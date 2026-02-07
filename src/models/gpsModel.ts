@@ -1,3 +1,5 @@
+import { GPSPacket } from "../data/gpsPacket";
+
 export class GPSModel {
   private dataHz: number = 25;
   public gpsData : GPSPacket[] = [];
@@ -20,7 +22,7 @@ export class GPSModel {
 
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
-    window.setInterval(() => {
+    globalThis.setInterval(() => {
       this.gpsData.push(this.generateSample());
     }, period);
   }

@@ -1,4 +1,4 @@
-import { Application, Graphics, mapFormatToGlInternalFormat, Particle, ParticleContainer, Text, Texture } from 'pixi.js';
+import { Application, Graphics, Particle, ParticleContainer, Text, Texture } from 'pixi.js';
 import { JSX, useEffect, useRef } from 'react';
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
@@ -6,17 +6,16 @@ import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
-import TelemetryModel from '@site/src/models/telemetryModel';
+import { io, Socket } from 'socket.io-client';
 
 var resizeHandler: EventListener | any;
 
+type GpsSample = { Longitude: number; Latitude: number };
 
 
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
-
-  // Model
-  const model = new TelemetryModel();
+  const datasetsRef = useRef<GpsSample[]>([]);
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -47,13 +46,26 @@ export default function DotPlot(): JSX.Element {
 
   // Graph data
   const MAX_VERTICES = 1000;
-  var datasets = [];
-  var currentState = { Longitude: 0, Latitude: 0 };
   var startingPoint = { Longitude: 0, Latitude: 0 };
-  var angle = 0;
-  var sampleCount = 0;
   
   useEffect(() => {
+    let socket: Socket | null = null;
+
+    socket = io('http://192.168.137.1:3001');
+    socket.on('telemetry:gps:init', (history: GpsSample[]) => {
+      if (Array.isArray(history)) {
+        datasetsRef.current = history;
+      }
+    });
+
+    socket.on('telemetry:gps', (sample: GpsSample) => {
+      if (!sample || typeof sample.Longitude !== 'number' || typeof sample.Latitude !== 'number') return;
+      datasetsRef.current.push(sample);
+      if (datasetsRef.current.length > MAX_VERTICES) {
+        datasetsRef.current.splice(0, datasetsRef.current.length - MAX_VERTICES);
+      }
+    });
+
     const initPixiApp = async () => {
       // Local refs so cleanup can access them
       let appRef: Application | null = null;
@@ -122,9 +134,6 @@ export default function DotPlot(): JSX.Element {
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
 
-      // Link datasets to model
-      datasets = model.gpsData;
-
 
 
       ////////// Draw function - called continuously (60fps) //////////
@@ -132,6 +141,9 @@ export default function DotPlot(): JSX.Element {
         ///// Initialization /////
 
         if (!graphicsRef) return;
+
+        const datasets = datasetsRef.current;
+        const sampleCount = datasets.length;
 
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
@@ -360,8 +372,6 @@ export default function DotPlot(): JSX.Element {
 
         // sampleCount++;
 
-        // model.gpsData.push(model.generateSample());
-        sampleCount = datasets.length;
       };
       app.ticker.add(tickerCallback);
     };
@@ -382,6 +392,10 @@ export default function DotPlot(): JSX.Element {
         }
       } catch (e) {
         // ignore cleanup errors
+      }
+
+      if (socket) {
+        socket.disconnect();
       }
     };
   }, []);

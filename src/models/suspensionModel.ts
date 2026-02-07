@@ -1,3 +1,5 @@
+import { SuspensionPacket } from "../data/suspensionPacket";
+
 export class SuspensionModel {
   private dataHz: number = 50;
   public suspensionData : SuspensionPacket[] = [];
@@ -19,7 +21,7 @@ export class SuspensionModel {
 
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
-    window.setInterval(() => {
+    globalThis.setInterval(() => {
       this.suspensionData.push(this.generateSample());
     }, period);
   }
