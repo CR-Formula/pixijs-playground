@@ -5,7 +5,9 @@ import { Packet } from "./packet";
  * 
  * 25 Hz packet with ID 0x02.
  */
-export interface GPSPacket extends Packet {
+export class GPSPacket extends Packet {
+  readonly PacketID = 2;
+
   /** GPS latitude. */
   Latitude: number;
 
@@ -14,4 +16,11 @@ export interface GPSPacket extends Packet {
 
   /** Vehicle speed measured by GPS. */
   Speed: number;
+
+  constructor(latitude: number, longitude: number, speed: number, timestamp?: EpochTimeStamp) {
+    super(timestamp);
+    this.Latitude = latitude;
+    this.Longitude = longitude;
+    this.Speed = speed;
+  }
 }

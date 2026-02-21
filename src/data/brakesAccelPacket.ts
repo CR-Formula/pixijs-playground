@@ -6,7 +6,9 @@ import { Packet } from "./packet";
  * 
  * 10 Hz packet with ID 0x04.
  */
-export interface BrakesAccelPacket extends Packet {
+export class BrakesAccelPacket extends Packet {
+  readonly PacketID = 4;
+
   /** Pressure of the oil. */
   OilPressure: number;
 
@@ -24,4 +26,22 @@ export interface BrakesAccelPacket extends Packet {
 
   /** Accelerometer Z axis. */
   AccelZ: number;
+
+  constructor(
+    oilPressure: number,
+    frontBrakeTemp: number,
+    rearBrakeTemp: number,
+    accelX: number,
+    accelY: number,
+    accelZ: number,
+    timestamp?: EpochTimeStamp
+  ) {
+    super(timestamp);
+    this.OilPressure = oilPressure;
+    this.FrontBrakeTemp = frontBrakeTemp;
+    this.RearBrakeTemp = rearBrakeTemp;
+    this.AccelX = accelX;
+    this.AccelY = accelY;
+    this.AccelZ = accelZ;
+  }
 }

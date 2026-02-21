@@ -5,10 +5,18 @@ import { Packet } from "./packet";
  * 
  * 1 Hz packet with ID 0x05.
  */
-export interface TemperaturePacket extends Packet {
+export class TemperaturePacket extends Packet {
+  readonly PacketID = 5;
+
   /** Air temperature in degrees Fahrenheit. */
   AirTemp: number;
 
   /** Coolant temperature in degrees Fahrenheit. */
   CoolTemp: number;
+
+  constructor(airTemp: number, coolTemp: number, timestamp?: EpochTimeStamp) {
+    super(timestamp);
+    this.AirTemp = airTemp;
+    this.CoolTemp = coolTemp;
+  }
 }

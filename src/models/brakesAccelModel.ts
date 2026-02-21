@@ -9,16 +9,14 @@ export class BrakesAccelModel {
   generateSample() : BrakesAccelPacket {
     this.angle += 0.1;
 
-    var packet: BrakesAccelPacket = {
-      PacketID: 2,
-      Timestamp: 0,
-      OilPressure: 0,
-      FrontBrakeTemp: 0,
-      RearBrakeTemp: 0,
-      AccelX: Math.cos(this.angle),
-      AccelY: Math.sin(this.angle),
-      AccelZ: 0
-    };
+    var packet: BrakesAccelPacket = new BrakesAccelPacket(
+      0,
+      0,
+      0,
+      Math.cos(this.angle),
+      Math.sin(this.angle),
+      0
+    );
 
     return packet;
   }

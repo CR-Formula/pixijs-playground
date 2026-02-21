@@ -9,12 +9,10 @@ export class TemperatureModel {
   generateSample() : TemperaturePacket {
     this.angle += 0.1;
 
-    var packet: TemperaturePacket = {
-      PacketID: 2,
-      Timestamp: 0,
-      AirTemp: Math.cos(this.angle) + 3 * Math.sin(this.angle/5),
-      CoolTemp: Math.sin(this.angle/3) + 3 * Math.sin(this.angle/4)
-    };
+    var packet: TemperaturePacket = new TemperaturePacket(
+      Math.cos(this.angle) + 3 * Math.sin(this.angle/5),
+      Math.sin(this.angle/3) + 3 * Math.sin(this.angle/4)
+    );
 
     return packet;
   }

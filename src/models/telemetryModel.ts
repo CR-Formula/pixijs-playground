@@ -32,6 +32,11 @@ export default class TelemetryModel {
     this.brakesAccelData = this.brakesAccelModel.brakesAccelData;
     this.temperatureData = this.temperatureModel.temperatureData;
 
+    // Generate demo data
+    // this.startDemo();
+  }
+  
+  public startDemo() {
     // Start generating data
     this.suspensionModel.startDemo();
     this.gpsModel.startDemo();
