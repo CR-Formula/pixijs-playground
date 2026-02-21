@@ -21,6 +21,10 @@ export class EngineDataModel {
     return packet;
   }
 
+  addPacket(packet: EngineDataPacket) {
+    this.engineData.push(packet);
+  }
+
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
     globalThis.setInterval(() => {

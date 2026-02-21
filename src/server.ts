@@ -9,6 +9,7 @@ import { GPSPacket } from './data/gpsPacket.ts';
 import { EngineDataPacket } from './data/engineDataPacket.ts';
 import { BrakesAccelPacket } from './data/brakesAccelPacket.ts';
 import { TemperaturePacket } from './data/temperaturePacket.ts';
+import { PacketType } from './data/packet.ts';
 
 const app = express();
 app.use(bodyParser.json());
@@ -21,56 +22,22 @@ const telemetry = new TelemetryModel();
 const GPS_HISTORY_LIMIT = 1000;
 const GPS_EMIT_PERIOD_MS = 40; // 25 Hz
 
-// -- Serial config (set TARGET_PRODUCT_ID to your device PID later) --
-const TARGET_PRODUCT_ID = '5740'; // e.g. '6001' (no 0x)
+const TARGET_PRODUCT_ID = '5740';
 const SERIAL_BAUD_RATE = 115200;
 const SERIAL_SCAN_INTERVAL_MS = 2000;
 
 let serialPort: SerialPort | null = null;
 
-function handleSerialData(chunk: Buffer | string) {
-    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+function handleSerialData(buf: Buffer) {
+    // Testing - set up debug buffer as LoRa packet
+    const gpsBuf = Buffer.alloc(13);
+    gpsBuf[0] = PacketType.GPS; // GPS packet type
+    buf.copy(gpsBuf, 1, 4);
 
-    const suspension: SuspensionPacket = new SuspensionPacket(
-        buf.readUInt16LE(0),
-        buf.readUInt16LE(2),
-    );
+    const packet = telemetry.parsePacket(gpsBuf);
+    if (!packet) return;
 
-    const gps: GPSPacket = new GPSPacket(
-        (buf.readInt32LE(4)) / 100000000,
-        (buf.readInt32LE(8)) / 100000000,
-        buf.readUInt32LE(12),
-    );
-
-    const engineData: EngineDataPacket = new EngineDataPacket(
-        buf.readUInt16LE(16),
-        buf.readUInt16LE(18),
-        buf.readUInt16LE(20),
-        buf.readUInt16LE(22),
-        buf.readUInt16LE(24),
-        buf.readUInt16LE(26),
-    );
-    
-    const brakesAccel: BrakesAccelPacket = new BrakesAccelPacket(
-        buf.readUInt16LE(28),
-        buf.readUInt16LE(30),
-        buf.readUInt16LE(32),
-        buf.readUInt16LE(34),
-        buf.readUInt16LE(36),
-        buf.readUInt16LE(38),
-    );
-
-    const temperature: TemperaturePacket = new TemperaturePacket(
-        buf.readUInt16LE(40),
-        buf.readUInt16LE(42),
-    );
-
-    io.emit('telemetry:gps', gps);
-    // console.log('suspension', gps.Latitude, gps.Longitude);
-
-    // const hex = buf.toString('hex');
-    // // emit raw hex frames to clients; parsing can be done on the client or later server-side
-    // io.emit('telemetry:raw', { hex });
+    io.emit('telemetry', packet);
 }
 
 async function findAndConnectSerial() {

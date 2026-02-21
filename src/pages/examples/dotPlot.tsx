@@ -7,15 +7,15 @@ import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
 import { io, Socket } from 'socket.io-client';
+import { Packet, PacketType } from '@site/src/data/packet';
+import { GPSPacket } from '@site/src/data/gpsPacket';
 
 var resizeHandler: EventListener | any;
-
-type GpsSample = { Longitude: number; Latitude: number };
 
 
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
-  const datasetsRef = useRef<GpsSample[]>([]);
+  const datasetsRef = useRef<GPSPacket[]>([]);
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -52,15 +52,15 @@ export default function DotPlot(): JSX.Element {
     let socket: Socket | null = null;
 
     socket = io('http://192.168.137.1:3001');
-    socket.on('telemetry:gps:init', (history: GpsSample[]) => {
+    socket.on('telemetry:gps:init', (history: GPSPacket[]) => {
       if (Array.isArray(history)) {
         datasetsRef.current = history;
       }
     });
 
-    socket.on('telemetry:gps', (sample: GpsSample) => {
-      if (!sample || typeof sample.Longitude !== 'number' || typeof sample.Latitude !== 'number') return;
-      datasetsRef.current.push(sample);
+    socket.on('telemetry', (sample: Packet) => {
+      if (!sample || sample.Type !== PacketType.GPS) return;
+      datasetsRef.current.push(sample as GPSPacket);
       if (datasetsRef.current.length > MAX_VERTICES) {
         datasetsRef.current.splice(0, datasetsRef.current.length - MAX_VERTICES);
       }

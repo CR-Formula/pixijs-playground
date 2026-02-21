@@ -1,4 +1,4 @@
-import { Packet } from "./packet";
+import { Packet, PacketType } from "./packet";
 
 /**
  * Defines a LoRa Packet with Engine RPM, Throttle Positon,
@@ -7,7 +7,7 @@ import { Packet } from "./packet";
  * 20 Hz packet with ID 0x03.
  */
 export class EngineDataPacket extends Packet {
-  readonly PacketID = 3;
+  readonly Type = PacketType.EngineData;
 
   /** Recorded pressure of the brakes. */
   BrakePressure: number;
@@ -26,6 +26,16 @@ export class EngineDataPacket extends Packet {
 
   Lambda: number; // Unsure what this is for
 
+  /**
+   * Creates a new LoRa packet with Engine RPM, Throttle Positon, Steering Angle, and Brake Pressure.
+   * @param brakePressure Recorded pressure of the brakes.
+   * @param throttleADC Analog throttle position.
+   * @param steering Steering angle.
+   * @param rpm RPM of the engine.
+   * @param throttlePosSensor Throttle position from ECU.
+   * @param lambda (Unknown)
+   * @param timestamp Optional timestamp; defaults to current time if not provided.
+   */
   constructor(
     brakePressure: number,
     throttleADC: number,
@@ -42,5 +52,21 @@ export class EngineDataPacket extends Packet {
     this.RPM = rpm;
     this.ThrottlePosSensor = throttlePosSensor;
     this.Lambda = lambda;
+  }
+
+  /**
+   * Creates an EngineDataPacket from a LoRa buffer, skipping the first byte (packet ID).
+   * @param buf The buffer containing the LoRa packet data, with the first byte being the packet ID.
+   * @returns A new EngineDataPacket instance.
+   */
+  static fromBuffer(buf: Buffer): EngineDataPacket {
+    return new EngineDataPacket(
+      buf.readUInt16LE(1), // Brake Pressure
+      buf.readUInt16LE(3), // Throttle ADC
+      buf.readUInt16LE(5), // Steering
+      buf.readUInt16LE(7), // RPM
+      buf.readUInt16LE(9), // Throttle Position Sensor
+      buf.readUInt16LE(11) // Lambda
+    );
   }
 }

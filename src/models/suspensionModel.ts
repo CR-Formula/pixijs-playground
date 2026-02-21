@@ -17,6 +17,10 @@ export class SuspensionModel {
     return packet;
   }
 
+  addPacket(packet: SuspensionPacket) {
+    this.suspensionData.push(packet);
+  }
+
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
     globalThis.setInterval(() => {

@@ -18,6 +18,10 @@ export class GPSModel {
     return packet;
   }
 
+  addPacket(packet: GPSPacket) {
+    this.gpsData.push(packet);
+  }
+
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
     globalThis.setInterval(() => {

@@ -21,6 +21,10 @@ export class BrakesAccelModel {
     return packet;
   }
 
+  addPacket(packet: BrakesAccelPacket) {
+    this.brakesAccelData.push(packet);
+  }
+
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
     globalThis.setInterval(() => {

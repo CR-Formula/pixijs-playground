@@ -17,6 +17,10 @@ export class TemperatureModel {
     return packet;
   }
 
+  addPacket(packet: TemperaturePacket) {
+    this.temperatureData.push(packet);
+  }
+
   startDemo() {
     const period = Math.round(1000 / this.dataHz);
     globalThis.setInterval(() => {
