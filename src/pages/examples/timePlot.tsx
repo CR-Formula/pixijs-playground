@@ -1,7 +1,6 @@
 import { Application, Graphics, Particle, ParticleContainer, Text, Texture } from 'pixi.js';
 import { JSX, useEffect, useRef } from 'react';
-import SyntaxHighlighter from "react-syntax-highlighter";
-import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
+// SyntaxHighlighter removed; we display the graph centered instead
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
@@ -13,7 +12,7 @@ import { GPSPacket } from '@site/src/data/gpsPacket';
 var resizeHandler: EventListener | any;
 
 
-export default function DotPlot(): JSX.Element {
+export default function TimePlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const datasetsRef = useRef<GPSPacket[]>([]);
 
@@ -23,10 +22,6 @@ export default function DotPlot(): JSX.Element {
   const BOTTOM_MARGIN = 70;
   const TOP_MARGIN = 25;
   const GRAPH_MARGIN = 25;
-  const X_MIN_LIMIT = -2;
-  const X_MAX_LIMIT = 2;
-  const Y_MIN_LIMIT = -2;
-  const Y_MAX_LIMIT = 2;
   var canvasWidth = 0, canvasHeight = 0;
   var xDataMax = -Infinity, xDataMin = Infinity;
   var yDataMax = -Infinity, yDataMin = Infinity;
@@ -34,7 +29,7 @@ export default function DotPlot(): JSX.Element {
   var graphYMin = 0, graphYMax = 0;
   
   // Graph tick spacing
-  const CLEAN_SPACINGS = [1, 0.4, 0.2, 0.1];
+  const CLEAN_SPACINGS = [10000, 5000, 2000, 1000, 500, 200, 100]; // ms candidates
 
   // Graph X ticks
   const X_TICK_LEN = 10;
@@ -46,7 +41,10 @@ export default function DotPlot(): JSX.Element {
 
   // Graph data
   const MAX_VERTICES = 1000;
-  var startingPoint = { Longitude: 0, Latitude: 0 };
+  var startingPoint = { Timestamp: Date.now(), Latitude: 0 } as any;
+
+  // Time window for X axis (ms)
+  const TIME_WINDOW_MS = 15000; // 15 seconds
   
   useEffect(() => {
     let socket: Socket | null = null;
@@ -124,12 +122,12 @@ export default function DotPlot(): JSX.Element {
       }
 
       // X axis name
-      const xAxisTitle = new Text('TPS', { fontFamily: 'arial', fontSize: 18 });
+      const xAxisTitle = new Text('Time', { fontFamily: 'arial', fontSize: 18 });
       xAxisTitle.anchor = { x: 0.5, y: 1 };
       app.stage.addChild(xAxisTitle);
       
       // Y axis name
-      const yAxisTitle = new Text('RPM', { fontFamily: 'arial', fontSize: 18 });
+      const yAxisTitle = new Text('Latitude', { fontFamily: 'arial', fontSize: 18 });
       yAxisTitle.anchor = { x: 0.5, y: 0 };
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
@@ -150,71 +148,53 @@ export default function DotPlot(): JSX.Element {
         xDataMax = -Infinity, xDataMin = Infinity;
         yDataMax = -Infinity, yDataMin = Infinity;
 
-        // Update axis positions (centered relative to graph bounds)
+        // Update axis positions (center relative to graph bounds)
         xAxisTitle.x = (graphXMin + graphXMax) / 2;
         xAxisTitle.y = canvasHeight - 10;
         yAxisTitle.x = 10;
         yAxisTitle.y = (graphYMin + graphYMax) / 2;
         
-        // Resize the graph bounds to fit the shown points
-        for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
-          
-          xDataMax = Math.max(dataPoint.Longitude, xDataMax);
-          xDataMin = Math.min(dataPoint.Longitude, xDataMin);
+        // Determine latest timestamp
+        let latestTimestamp = Date.now();
+        if (sampleCount > 0) latestTimestamp = Math.max(latestTimestamp, datasets[datasets.length - 1].Timestamp as number);
+
+        // Set X data bounds to a sliding window ending at latestTimestamp
+        xDataMax = latestTimestamp;
+        xDataMin = xDataMax - TIME_WINDOW_MS;
+
+        // Compute Y bounds from current visible samples
+        for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+          // determine if sample is within time window
+          let idx = sampleCount < MAX_VERTICES ? i : datasets.length - MAX_VERTICES + i;
+          const dataPoint = datasets[idx];
+          if ((dataPoint.Timestamp as number) < xDataMin) continue;
           yDataMax = Math.max(dataPoint.Latitude, yDataMax);
           yDataMin = Math.min(dataPoint.Latitude, yDataMin);
         }
 
-        // Ensure minimum graph size (data limits)
-        xDataMin = Math.min(xDataMin, X_MIN_LIMIT);
-        xDataMax = Math.max(xDataMax, X_MAX_LIMIT);
-        yDataMin = Math.min(yDataMin, Y_MIN_LIMIT);
-        yDataMax = Math.max(yDataMax, Y_MAX_LIMIT);
-
-        // Update the drawing bounds to fill available canvas
+        // Ensure minimum ranges
+        yDataMin = Math.min(yDataMin, -2);
+        yDataMax = Math.max(yDataMax, 2);
+        
+        // Update the drawing bounds
         graphXMin = LEFT_MARGIN;
         graphYMin = TOP_MARGIN;
         graphXMax = canvasWidth - RIGHT_MARGIN;
         graphYMax = canvasHeight - BOTTOM_MARGIN;
-
-        // Compute pixel sizes for plotting area
-        const pixelWidth = Math.max(1, graphXMax - graphXMin);
-        const pixelHeight = Math.max(1, graphYMax - graphYMin);
-
-        // Adjust data ranges so that units-per-pixel are equal in X and Y.
-        const rawXRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : 1;
-        const rawYRange = isFinite(yDataMax) && isFinite(yDataMin) && yDataMax !== yDataMin ? yDataMax - yDataMin : 1;
-
-        // scale = units-per-pixel * pixels -> choose the larger units-per-pixel to avoid squashing
-        const unitsPerPixelX = rawXRange / pixelWidth;
-        const unitsPerPixelY = rawYRange / pixelHeight;
-        const unitsPerPixel = Math.max(unitsPerPixelX, unitsPerPixelY, 1e-12);
-
-        const displayXRange = unitsPerPixel * pixelWidth;
-        const displayYRange = unitsPerPixel * pixelHeight;
-
-        const xCenter = (xDataMax + xDataMin) / 2.0;
-        const yCenter = (yDataMax + yDataMin) / 2.0;
-
-        xDataMin = xCenter - (displayXRange / 2.0);
-        xDataMax = xCenter + (displayXRange / 2.0);
-        yDataMin = yCenter - (displayYRange / 2.0);
-        yDataMax = yCenter + (displayYRange / 2.0);
         
         
         ///// X Tick lines /////
         
         // Prepare X tick lines with guards to avoid NaN/Infinity
-        const xDataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : 1;
-        xTargetSpacing = xDataRange / ((canvasWidth - LEFT_MARGIN - RIGHT_MARGIN) / 45.0); // Split range based on screen size
-        if (xTargetSpacing <= 0 || !isFinite(xTargetSpacing)) xTargetSpacing = 1;
-        xBasePower = Math.pow(10, Math.floor(Math.log10(xTargetSpacing))); // Find decimal place of spacing
-        const xSpacingCandidate = CLEAN_SPACINGS.find(s => xBasePower / s >= xTargetSpacing) ?? 1;
-        xTickInterval = xBasePower / xSpacingCandidate; // Round to clean interval (1, 0.5, 0.25, 0.1)
+        const xDataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : TIME_WINDOW_MS;
+        xTargetSpacing = xDataRange / ((canvasWidth - LEFT_MARGIN - RIGHT_MARGIN) / 90.0); // wider spacing for time labels
+        if (xTargetSpacing <= 0 || !isFinite(xTargetSpacing)) xTargetSpacing = 1000;
+        // Pick a spacing candidate from CLEAN_SPACINGS (ms) by finding nearest >= target
+        const xSpacingCandidate = CLEAN_SPACINGS.find(s => s >= xTargetSpacing) ?? CLEAN_SPACINGS[CLEAN_SPACINGS.length - 1];
+        xTickInterval = xSpacingCandidate;
 
-        numXTicks = Math.max(0, Math.round(xDataRange / xTickInterval) + 2); // Overestimate to be safe
-        const firstXTick = (Math.round(xDataMax / xTickInterval)) * xTickInterval;
+        numXTicks = Math.max(0, Math.round(xDataRange / xTickInterval) + 2);
+        const firstXTick = Math.ceil(xDataMax / xTickInterval) * xTickInterval;
         
         // Draw the X ticks and grid lines (reuse pooled Text labels)
         for (let i = 0; i < numXTicks; i++) {
@@ -224,7 +204,7 @@ export default function DotPlot(): JSX.Element {
           let isWithinBounds = (graphX <= graphXMax + 1 && graphX >= graphXMin - 1);
 
           // Check if even/odd tick line
-          let isEvenTick = (i + (firstXTick / xTickInterval)) % 2 == 0;
+          let isEvenTick = (i + Math.round(firstXTick / xTickInterval)) % 2 == 0;
 
           // Only draw if within bounds
           if (isWithinBounds) {
@@ -242,7 +222,7 @@ export default function DotPlot(): JSX.Element {
           // Draw the tick value using a pooled Text label
           const lbl = xLabelPool[i];
           if (lbl) {
-            lbl.text = tickX.toFixed(2);
+            lbl.text = new Date(Math.round(tickX)).toLocaleTimeString();
             lbl.x = graphX;
             lbl.y = canvasHeight - (BOTTOM_MARGIN - X_TICK_LEN - 5);
             lbl.visible = isWithinBounds;
@@ -260,7 +240,7 @@ export default function DotPlot(): JSX.Element {
         yTargetSpacing = yDataRange / ((canvasHeight - TOP_MARGIN - BOTTOM_MARGIN) / 45.0); // Split range based on screen size
         if (yTargetSpacing <= 0 || !isFinite(yTargetSpacing)) yTargetSpacing = 1;
         yBasePower = Math.pow(10, Math.floor(Math.log10(yTargetSpacing))); // Find decimal place of spacing
-        const spacingCandidate = CLEAN_SPACINGS.find(s => yBasePower / s >= yTargetSpacing) ?? 1;
+        const spacingCandidate = [1, 0.5, 0.2, 0.1].find(s => yBasePower / s >= yTargetSpacing) ?? 1;
         yTickInterval = yBasePower / spacingCandidate; // Round to clean interval (1, 0.5, 0.25, 0.1)
 
         numYTicks = Math.max(0, Math.round(yDataRange / yTickInterval) + 2); // Overestimate to be safe
@@ -308,29 +288,30 @@ export default function DotPlot(): JSX.Element {
           graphicsRef.lineTo(graphXMax, convertGraphToScreenY(0));
           graphicsRef.stroke({ width: 3, color: 0x000000 });
         }
-        if (convertGraphToScreenX(0) <= graphXMax && convertGraphToScreenX(0) >= graphXMin) {
-          graphicsRef.moveTo(convertGraphToScreenX(0), graphYMin);
-          graphicsRef.lineTo(convertGraphToScreenX(0), graphYMax);
-          graphicsRef.stroke({ width: 3, color: 0x000000 });
-        }
 
 
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        startingPoint = datasets.length > 0 ? (sampleCount < MAX_VERTICES ? datasets[0] : datasets[datasets.length - MAX_VERTICES]) : { Longitude: 0, Latitude: 0 };
-        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Longitude), convertGraphToScreenY(startingPoint.Latitude));
+        startingPoint = datasets.length > 0 ? (sampleCount < MAX_VERTICES ? datasets[0] : datasets[datasets.length - MAX_VERTICES]) : { Timestamp: Date.now(), Latitude: 0 };
+        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Timestamp as number), convertGraphToScreenY(startingPoint.Latitude));
 
         let x = 0.0, y = 0.0;
-        for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+        for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
           let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
+          if ((dataPoint.Timestamp as number) < xDataMin) {
+            particles[i].alpha = 0;
+            continue;
+          }
 
-          x = convertGraphToScreenX(dataPoint.Longitude);
+          x = convertGraphToScreenX(dataPoint.Timestamp as number);
           y = convertGraphToScreenY(dataPoint.Latitude);
 
           particles[i].x = x;
           particles[i].y = y;
-          particles[i].alpha = ((i + MAX_VERTICES - Math.min(sampleCount, MAX_VERTICES)) / MAX_VERTICES);
+          // fade older points
+          const ageFactor = (dataPoint.Timestamp as number) - xDataMin;
+          particles[i].alpha = Math.max(0.05, Math.min(1, ageFactor / (xDataRange)));
         }
 
 
@@ -346,7 +327,7 @@ export default function DotPlot(): JSX.Element {
 
       ////////// Coordinate conversions //////////
       function convertGraphToScreenX(x: number): number {
-        const dataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : 1;
+        const dataRange = isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin ? xDataMax - xDataMin : TIME_WINDOW_MS;
         const graphRange = isFinite(graphXMax) && isFinite(graphXMin) && graphXMax !== graphXMin ? graphXMax - graphXMin: 1;
         return (graphXMin + GRAPH_MARGIN) + (((x - xDataMin) / dataRange) * (graphRange - (2 * GRAPH_MARGIN)));
       }
@@ -363,11 +344,12 @@ export default function DotPlot(): JSX.Element {
       const container = pixiContainerRef.current;
       if (container) container.appendChild((app.view as any) ?? (app as any).canvas);
 
-      ////////// Handle resizing //////////
+      ////////// Handle resizing (simplified) //////////
       resizeHandler = () => {
         const container = pixiContainerRef.current;
         if (!container) return;
 
+        // Use bounding rect for robust width/height and subtract padding to avoid overflow
         const rect = container.getBoundingClientRect();
         const style = window.getComputedStyle(container);
         const padLeft = parseFloat(style.paddingLeft || '0') || 0;
@@ -375,12 +357,14 @@ export default function DotPlot(): JSX.Element {
         const padTop = parseFloat(style.paddingTop || '0') || 0;
         const padBottom = parseFloat(style.paddingBottom || '0') || 0;
 
-        canvasWidth = Math.max(100, Math.round((rect.width || 0) - (padLeft + padRight)));
+        const contentWidth = Math.max(100, Math.round((rect.width || 0) - (padLeft + padRight)));
         const contentHeight = Math.max(100, Math.round((rect.height || 0) - (padTop + padBottom)));
-        // Use the container height as the canvas height (do not force a square)
+
+        canvasWidth = contentWidth;
         canvasHeight = contentHeight;
 
         app.renderer.resize(canvasWidth, canvasHeight);
+
         const canvasEl = (app.view as any) as HTMLCanvasElement;
         if (canvasEl && canvasEl.style) {
           canvasEl.style.width = `${canvasWidth}px`;
@@ -389,29 +373,18 @@ export default function DotPlot(): JSX.Element {
           canvasEl.style.margin = '0 auto';
         }
 
-        // Trigger rendering to update the scene
+        // Render once after resizing
         app.render();
         draw();
       };
 
-      // Resize initially and listen for changes
+      // Initial size and listener
       resizeHandler();
       window.addEventListener('resize', resizeHandler);
 
       // Utilized to call the draw - 60fps
       const tickerCallback = () => {
         draw(); // Call the drawing function
-
-        // Create new data state
-        // angle += 0.1; // Increment angle for data generation
-        // currentState = { data: {
-        //   tps: Math.cos(angle) + 3 * Math.sin(angle/5),
-        //   rpm: Math.sin(angle/3) + 3 * Math.sin(angle/4)
-        // } };
-        // datasets.push(currentState.data);
-
-        // sampleCount++;
-
       };
       app.ticker.add(tickerCallback);
     };
@@ -445,11 +418,13 @@ export default function DotPlot(): JSX.Element {
     <Layout>
       <header className={clsx(styles.headerBanner)}>
         <div className="container">
-          <Heading as="h1" className="example_title">Dot Plot</Heading>
+          <Heading as="h1" className="example_title">Time Plot</Heading>
         </div>
       </header>
-      <main style={{ display: 'flex' }}>
-        <div className={styles.canvas} ref={pixiContainerRef} />
+      <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+          <div className={styles.canvas} ref={pixiContainerRef} />
+        </div>
       </main>
     </Layout>
   );

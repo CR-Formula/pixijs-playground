@@ -22,7 +22,8 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Time Domain',
-    page: '/examples/timeDomain',
+    // page: '/examples/timeDomain',
+    page: '/examples/timePlot',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
