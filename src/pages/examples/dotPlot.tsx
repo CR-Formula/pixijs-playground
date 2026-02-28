@@ -166,11 +166,24 @@ export default function DotPlot(): JSX.Element {
           yDataMin = Math.min(dataPoint.Latitude, yDataMin);
         }
 
-        // Ensure minimum graph size (data limits)
-        xDataMin = Math.min(xDataMin, X_MIN_LIMIT);
-        xDataMax = Math.max(xDataMax, X_MAX_LIMIT);
-        yDataMin = Math.min(yDataMin, Y_MIN_LIMIT);
-        yDataMax = Math.max(yDataMax, Y_MAX_LIMIT);
+        // Use the data min/max as bounds (fall back to limits only if no data)
+        if (!isFinite(xDataMin) || !isFinite(xDataMax)) {
+          xDataMin = X_MIN_LIMIT;
+          xDataMax = X_MAX_LIMIT;
+        }
+        if (!isFinite(yDataMin) || !isFinite(yDataMax)) {
+          yDataMin = Y_MIN_LIMIT;
+          yDataMax = Y_MAX_LIMIT;
+        }
+
+        // Add a small fractional padding around the data so points don't sit on the axes
+        const PAD_FRACTION = 0.03; // 3% padding
+        const origXRange = (isFinite(xDataMax) && isFinite(xDataMin) && xDataMax !== xDataMin) ? (xDataMax - xDataMin) : 1;
+        const origYRange = (isFinite(yDataMax) && isFinite(yDataMin) && yDataMax !== yDataMin) ? (yDataMax - yDataMin) : 1;
+        xDataMin -= origXRange * PAD_FRACTION;
+        xDataMax += origXRange * PAD_FRACTION;
+        yDataMin -= origYRange * PAD_FRACTION;
+        yDataMax += origYRange * PAD_FRACTION;
 
         // Update the drawing bounds to fill available canvas
         graphXMin = LEFT_MARGIN;

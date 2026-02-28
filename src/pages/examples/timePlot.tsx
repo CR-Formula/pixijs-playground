@@ -172,9 +172,17 @@ export default function TimePlot(): JSX.Element {
           yDataMin = Math.min(dataPoint.Latitude, yDataMin);
         }
 
-        // Ensure minimum ranges
-        yDataMin = Math.min(yDataMin, -2);
-        yDataMax = Math.max(yDataMax, 2);
+        // Use the data min/max as bounds (fall back to defaults only if no data)
+        if (!isFinite(yDataMin) || !isFinite(yDataMax)) {
+          yDataMin = -2;
+          yDataMax = 2;
+        }
+
+        // Add a small fractional padding around the Y data so points don't sit on the edges
+        const PAD_FRACTION = 0.03; // 3% padding
+        const rawYRange = (isFinite(yDataMax) && isFinite(yDataMin) && yDataMax !== yDataMin) ? (yDataMax - yDataMin) : 1;
+        yDataMin -= rawYRange * PAD_FRACTION;
+        yDataMax += rawYRange * PAD_FRACTION;
         
         // Update the drawing bounds
         graphXMin = LEFT_MARGIN;
