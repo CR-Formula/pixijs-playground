@@ -7,15 +7,18 @@ import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
 import { io, Socket } from 'socket.io-client';
-import { Packet, PacketType } from '@site/src/data/packet';
-import { GPSPacket } from '@site/src/data/gpsPacket';
+import { ModelData, ModelDataType } from '@site/src/models/model';
+import { GPSModelData } from '@site/src/models/gpsModel';
+import { Dataset } from '@site/src/models/telemetryModel';
 
 var resizeHandler: EventListener | any;
 
 
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
-  const datasetsRef = useRef<GPSPacket[]>([]);
+  var dataset: Dataset = new Dataset();
+  var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
+  // var gpsDataset: GPSModelData[] = [];
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -52,18 +55,14 @@ export default function DotPlot(): JSX.Element {
     let socket: Socket | null = null;
 
     socket = io('http://192.168.137.1:3001');
-    socket.on('telemetry:gps:init', (history: GPSPacket[]) => {
-      if (Array.isArray(history)) {
-        datasetsRef.current = history;
-      }
+    socket.on('telemetry:history', (history: Dataset) => {
+      dataset = Object.assign(new Dataset(), history);
+      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
     });
 
-    socket.on('telemetry', (sample: Packet) => {
-      if (!sample || sample.Type !== PacketType.GPS) return;
-      datasetsRef.current.push(sample as GPSPacket);
-      if (datasetsRef.current.length > MAX_VERTICES) {
-        datasetsRef.current.splice(0, datasetsRef.current.length - MAX_VERTICES);
-      }
+    socket.on('telemetry', (sample: ModelData) => {
+      dataset.addDataPoint(sample, MAX_VERTICES);
+      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
     });
 
     const initPixiApp = async () => {
@@ -142,8 +141,7 @@ export default function DotPlot(): JSX.Element {
 
         if (!graphicsRef) return;
 
-        const datasets = datasetsRef.current;
-        const sampleCount = datasets.length;
+        const sampleCount = gpsDataset.current.length;
 
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
@@ -158,7 +156,8 @@ export default function DotPlot(): JSX.Element {
         
         // Resize the graph bounds to fit the shown points
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
+          // let dataPoint = sampleCount < MAX_VERTICES ? dataset[i] : dataset[sampleCount - MAX_VERTICES + i];
+          let dataPoint: GPSModelData = gpsDataset.current[i];
           
           xDataMax = Math.max(dataPoint.Longitude, xDataMax);
           xDataMin = Math.min(dataPoint.Longitude, xDataMin);
@@ -331,12 +330,14 @@ export default function DotPlot(): JSX.Element {
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        startingPoint = datasets.length > 0 ? (sampleCount < MAX_VERTICES ? datasets[0] : datasets[datasets.length - MAX_VERTICES]) : { Longitude: 0, Latitude: 0 };
+        // startingPoint = dataset.length > 0 ? (sampleCount < MAX_VERTICES ? dataset[0] : dataset[dataset.length - MAX_VERTICES]) : { Longitude: 0, Latitude: 0 };
+        let startingPoint: GPSModelData = sampleCount > 0 ? gpsDataset.current[0] : new GPSModelData(0, 0, 0);
         graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Longitude), convertGraphToScreenY(startingPoint.Latitude));
 
         let x = 0.0, y = 0.0;
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          let dataPoint = sampleCount < MAX_VERTICES ? datasets[i] : datasets[datasets.length - MAX_VERTICES + i];
+          // let dataPoint = sampleCount < MAX_VERTICES ? dataset[i] : dataset[dataset.length - MAX_VERTICES + i];
+          let dataPoint: GPSModelData = gpsDataset.current[i];
 
           x = convertGraphToScreenX(dataPoint.Longitude);
           y = convertGraphToScreenY(dataPoint.Latitude);

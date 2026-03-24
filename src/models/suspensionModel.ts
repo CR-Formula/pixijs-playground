@@ -1,30 +1,61 @@
-import { SuspensionPacket } from "../data/suspensionPacket";
+import { Model, ModelData, ModelDataType, PacketType } from "./model";
 
-export class SuspensionModel {
-  private dataHz: number = 50;
-  public suspensionData : SuspensionPacket[] = [];
+/**
+ * Models the data from the Suspension system.
+ * 
+ * @author AWBirky
+ */
+export class SuspensionModel extends Model<SuspensionModelData> {
+    protected readonly packetHandlers = {
+        // Suspension Packet
+        [PacketType.Suspension]: (buf: Buffer) => {
+            if (buf.length < 5) return null;
+            
+            return new SuspensionModelData(
+                buf.readUInt16LE(1), // Front Pot
+                buf.readUInt16LE(3)  // Rear Pot
+            );
+        }
+    };
 
-  private angle: number = 0;
+    public generateDemoValue() {
+        this.i += 0.1;
+        this.emit(new SuspensionModelData(
+            50 * Math.cos(this.i/10) + 50,
+            50 * Math.cos(this.i/15) + 50
+        ));
+    }
+}
 
-  generateSample() : SuspensionPacket {
-    this.angle += 0.1;
 
-    var packet: SuspensionPacket = new SuspensionPacket(
-      Math.cos(this.angle) + 3 * Math.sin(this.angle/5),
-      Math.sin(this.angle/3) + 3 * Math.sin(this.angle/4)
-    );
 
-    return packet;
-  }
+/**
+ * Defines the data handled by the SuspensionModel.
+ * 
+ * @author AWBirky
+ */
+export class SuspensionModelData extends ModelData {
+    readonly Type = ModelDataType.Suspension;
 
-  addPacket(packet: SuspensionPacket) {
-    this.suspensionData.push(packet);
-  }
+    /** Potentiometer value for the front right damper. */
+    readonly FrontPot: number;
+    
+    /** Potentiometer value for the rear right damper. */
+    readonly RearPot: number;
 
-  startDemo() {
-    const period = Math.round(1000 / this.dataHz);
-    globalThis.setInterval(() => {
-      this.suspensionData.push(this.generateSample());
-    }, period);
-  }
+    /**
+     * Creates a new Suspension data point.
+     * @param frontPot Potentiometer value for the front right damper.
+     * @param rearPot Potentiometer value for the rear right damper.
+     * @param timestamp Optional timestamp (defaults to current time).
+     */
+    constructor(
+        frontPot: number,
+        rearPot: number,
+        timestamp?: EpochTimeStamp
+    ) {
+        super(timestamp);
+        this.FrontPot = frontPot;
+        this.RearPot = rearPot;
+    }
 }

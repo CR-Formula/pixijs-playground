@@ -1,30 +1,60 @@
-import { TemperaturePacket } from "../data/temperaturePacket";
+import { Model, ModelData, ModelDataType, PacketType } from "./model";
 
-export class TemperatureModel {
-  private dataHz: number = 1;
-  public temperatureData : TemperaturePacket[] = [];
+/**
+ * Models the data from the temperature system.
+ * 
+ * @author AWBirky
+ */
+export class TemperatureModel extends Model<TemperatureModelData> {
+    protected readonly packetHandlers = {
+        [PacketType.Temperature]: (buf: Buffer) => {
+            if (buf.length < 5) return null;
 
-  private angle: number = 0;
+            return new TemperatureModelData(
+                buf.readInt16LE(1), // Air Temp
+                buf.readInt16LE(3)  // Coolant Temp
+            )
+        }
+    };
 
-  generateSample() : TemperaturePacket {
-    this.angle += 0.1;
+    public generateDemoValue() {
+        this.i += 0.1;
+        this.emit(new TemperatureModelData(
+            50 * Math.cos(this.i/10) + 50,
+            50 * Math.cos(this.i/15) + 50
+        ));
+    }
+}
 
-    var packet: TemperaturePacket = new TemperaturePacket(
-      Math.cos(this.angle) + 3 * Math.sin(this.angle/5),
-      Math.sin(this.angle/3) + 3 * Math.sin(this.angle/4)
-    );
 
-    return packet;
-  }
 
-  addPacket(packet: TemperaturePacket) {
-    this.temperatureData.push(packet);
-  }
+/**
+ * Defines the data handled by the TemperatureModel.
+ * 
+ * @author AWBirky
+ */
+export class TemperatureModelData extends ModelData {
+    readonly Type = ModelDataType.Temperature;
 
-  startDemo() {
-    const period = Math.round(1000 / this.dataHz);
-    globalThis.setInterval(() => {
-      this.temperatureData.push(this.generateSample());
-    }, period);
-  }
+    /** Air temperature. */
+    AirTemp: number;
+
+    /** Coolant temperature. */
+    CoolTemp: number;
+
+    /**
+     * Creates a new temperature data point.
+     * @param airTemp Air temperature.
+     * @param coolTemp Coolant temperature.
+     * @param timestamp Optional timestamp (defaults to current time).
+     */
+    constructor(
+        airTemp: number,
+        coolTemp: number,
+        timestamp?: EpochTimeStamp
+    ) {
+        super(timestamp);
+        this.AirTemp = airTemp;
+        this.CoolTemp = coolTemp;
+    }
 }

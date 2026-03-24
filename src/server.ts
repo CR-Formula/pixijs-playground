@@ -4,12 +4,7 @@ import { Server as IOServer } from 'socket.io';
 import bodyParser from 'body-parser';
 import TelemetryModel from './models/telemetryModel.ts';
 import { SerialPort } from 'serialport';
-import { SuspensionPacket } from './data/suspensionPacket.ts';
-import { GPSPacket } from './data/gpsPacket.ts';
-import { EngineDataPacket } from './data/engineDataPacket.ts';
-import { BrakesAccelPacket } from './data/brakesAccelPacket.ts';
-import { TemperaturePacket } from './data/temperaturePacket.ts';
-import { PacketType } from './data/packet.ts';
+import { PacketType } from './models/model.ts';
 
 const app = express();
 app.use(bodyParser.json());
@@ -18,8 +13,8 @@ app.use(express.static('public'));
 const server = http.createServer(app);
 const io = new IOServer(server, { cors: { origin: '*' } });
 
-const telemetry = new TelemetryModel();
-const GPS_HISTORY_LIMIT = 1000;
+const telemetryModel = new TelemetryModel();
+const HISTORY_LIMIT = 1000;
 const GPS_EMIT_PERIOD_MS = 40; // 25 Hz
 
 const TARGET_PRODUCT_ID = '5740';
@@ -28,17 +23,19 @@ const SERIAL_SCAN_INTERVAL_MS = 2000;
 
 let serialPort: SerialPort | null = null;
 
+// DEMO
+telemetryModel.startDemo();
+
 function handleSerialData(buf: Buffer) {
     // Testing - set up debug buffer as LoRa packet
     const gpsBuf = Buffer.alloc(13);
     gpsBuf[0] = PacketType.GPS; // GPS packet type
     buf.copy(gpsBuf, 1, 4);
 
-    const packet = telemetry.parsePacket(gpsBuf);
-    if (!packet) return;
-
-    io.emit('telemetry', packet);
+    telemetryModel.parseData(gpsBuf);
 }
+
+telemetryModel.onDataProcessed((data) => io.emit('telemetry', data));
 
 async function findAndConnectSerial() {
     try {
@@ -82,24 +79,9 @@ setInterval(() => {
     if (!serialPort) findAndConnectSerial();
 }, SERIAL_SCAN_INTERVAL_MS);
 
-io.on('connection', socket => {
-    console.log('client connected');
-    const history = telemetry.gpsData.slice(-GPS_HISTORY_LIMIT);
-    if (history.length > 0) {
-        socket.emit('telemetry:gps:init', history);
-    }
-});
-
-function handleUplink(data) {
-    io.emit('telemetry', data);
-}
-
-globalThis.setInterval(() => {
-    const latestGps = telemetry.gpsData[telemetry.gpsData.length - 1];
-    if (latestGps) {
-        // io.emit('telemetry:gps', latestGps);
-    }
-}, GPS_EMIT_PERIOD_MS);
+io.on('connection', socket => 
+    socket.emit('telemetry:history', telemetryModel.getAllHistory(HISTORY_LIMIT))
+);
 
 server.listen(3001, '0.0.0.0', () => {
     console.log('listening on 0.0.0.0:3001');
