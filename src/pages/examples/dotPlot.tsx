@@ -9,16 +9,19 @@ import styles from '../css/examples.module.css';
 import { io, Socket } from 'socket.io-client';
 import { ModelData, ModelDataType } from '@site/src/models/model';
 import { GPSModelData } from '@site/src/models/gpsModel';
-import { Dataset } from '@site/src/models/telemetryModel';
+import TelemetryModel, { Dataset } from '@site/src/models/telemetryModel';
+import { clientDataset } from '@site/src/scripts/client';
 
 var resizeHandler: EventListener | any;
 
-
 export default function DotPlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
-  var dataset: Dataset = new Dataset();
-  var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
-  // var gpsDataset: GPSModelData[] = [];
+
+  // var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
+  var xSet = useRef<number[]>(clientDataset.getSetFromKey(xKey) as number[]);
+  var ySet = useRef<number[]>(clientDataset.getSetFromKey(yKey) as number[]);
+  var xKey = 'Longitude (deg)';
+  var yKey = 'Latitude (deg)';
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -52,18 +55,23 @@ export default function DotPlot(): JSX.Element {
   var startingPoint = { Longitude: 0, Latitude: 0 };
   
   useEffect(() => {
-    let socket: Socket | null = null;
+    // let socket: Socket | null = null;
 
-    socket = io('http://192.168.137.1:3001');
-    socket.on('telemetry:history', (history: Dataset) => {
-      dataset = Object.assign(new Dataset(), history);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
-    });
+    // socket = io('http://192.168.137.1:3001');
+    // socket.on('telemetry:history', (history: Dataset) => {
+    //   dataset = Object.assign(new Dataset(), history);
+    //   xSet.current = dataset.getSetFromKey(xKey) as number[];
+    //   ySet.current = dataset.getSetFromKey(yKey) as number[];
+    //   // gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
+    // });
 
-    socket.on('telemetry', (sample: ModelData) => {
-      dataset.addDataPoint(sample, MAX_VERTICES);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
-    });
+    // socket.on('telemetry', (sample: ModelData) => {
+    //   dataset.addDataPoint(sample, MAX_VERTICES);
+    //   xSet.current = dataset.getSetFromKey(xKey) as number[];
+    //   ySet.current = dataset.getSetFromKey(yKey) as number[];
+    //   // console.log('xSet', xSet.current);
+    //   // gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
+    // });
 
     const initPixiApp = async () => {
       // Local refs so cleanup can access them
@@ -123,12 +131,12 @@ export default function DotPlot(): JSX.Element {
       }
 
       // X axis name
-      const xAxisTitle = new Text('TPS', { fontFamily: 'arial', fontSize: 18 });
+      const xAxisTitle = new Text(xKey, { fontFamily: 'arial', fontSize: 18 });
       xAxisTitle.anchor = { x: 0.5, y: 1 };
       app.stage.addChild(xAxisTitle);
       
       // Y axis name
-      const yAxisTitle = new Text('RPM', { fontFamily: 'arial', fontSize: 18 });
+      const yAxisTitle = new Text(yKey, { fontFamily: 'arial', fontSize: 18 });
       yAxisTitle.anchor = { x: 0.5, y: 0 };
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
@@ -141,7 +149,13 @@ export default function DotPlot(): JSX.Element {
 
         if (!graphicsRef) return;
 
-        const sampleCount = gpsDataset.current.length;
+        xSet.current = clientDataset.getSetFromKey(xKey) as number[];
+        ySet.current = clientDataset.getSetFromKey(yKey) as number[];
+
+        xAxisTitle.text = xKey;
+        yAxisTitle.text = yKey;
+
+        const sampleCount = Math.min(xSet.current.length, ySet.current.length);
 
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
@@ -157,12 +171,13 @@ export default function DotPlot(): JSX.Element {
         // Resize the graph bounds to fit the shown points
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
           // let dataPoint = sampleCount < MAX_VERTICES ? dataset[i] : dataset[sampleCount - MAX_VERTICES + i];
-          let dataPoint: GPSModelData = gpsDataset.current[i];
-          
-          xDataMax = Math.max(dataPoint.Longitude, xDataMax);
-          xDataMin = Math.min(dataPoint.Longitude, xDataMin);
-          yDataMax = Math.max(dataPoint.Latitude, yDataMax);
-          yDataMin = Math.min(dataPoint.Latitude, yDataMin);
+          let dataPointX: number = xSet.current[i];
+          let dataPointY: number = ySet.current[i];
+
+          xDataMax = Math.max(dataPointX, xDataMax);
+          xDataMin = Math.min(dataPointX, xDataMin);
+          yDataMax = Math.max(dataPointY, yDataMax);
+          yDataMin = Math.min(dataPointY, yDataMin);
         }
 
         // Use the data min/max as bounds (fall back to limits only if no data)
@@ -331,16 +346,18 @@ export default function DotPlot(): JSX.Element {
 
         // Start the line from the first point in the sliding window
         // startingPoint = dataset.length > 0 ? (sampleCount < MAX_VERTICES ? dataset[0] : dataset[dataset.length - MAX_VERTICES]) : { Longitude: 0, Latitude: 0 };
-        let startingPoint: GPSModelData = sampleCount > 0 ? gpsDataset.current[0] : new GPSModelData(0, 0, 0);
-        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Longitude), convertGraphToScreenY(startingPoint.Latitude));
+        let startingPointX: number = sampleCount > 0 ? xSet.current[0] : 0;
+        let startingPointY: number = sampleCount > 0 ? ySet.current[0] : 0;
+        graphicsRef.moveTo(convertGraphToScreenX(startingPointX), convertGraphToScreenY(startingPointY));
 
         let x = 0.0, y = 0.0;
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
           // let dataPoint = sampleCount < MAX_VERTICES ? dataset[i] : dataset[dataset.length - MAX_VERTICES + i];
-          let dataPoint: GPSModelData = gpsDataset.current[i];
+          let dataPointX: number = xSet.current[i];
+          let dataPointY: number = ySet.current[i];
 
-          x = convertGraphToScreenX(dataPoint.Longitude);
-          y = convertGraphToScreenY(dataPoint.Latitude);
+          x = convertGraphToScreenX(dataPointX);
+          y = convertGraphToScreenY(dataPointY);
 
           particles[i].x = x;
           particles[i].y = y;
@@ -448,9 +465,9 @@ export default function DotPlot(): JSX.Element {
         // ignore cleanup errors
       }
 
-      if (socket) {
-        socket.disconnect();
-      }
+      // if (socket) {
+      //   socket.disconnect();
+      // }
     };
   }, []);
 

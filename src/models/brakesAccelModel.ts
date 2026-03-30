@@ -8,7 +8,7 @@ import { Model, ModelData, ModelDataType, PacketType } from "./model";
 export class BrakesAccelModel extends Model<BrakesAccelModelData> {
     protected readonly packetHandlers = {
         // Brake/Acceleration Packet
-        [PacketType.BrakesAccel]: (buf: Buffer) => {
+        [PacketType.BrakesAccel]: (buf: Buffer, timestamp?: number) => {
             if (buf.length < 13) return null;
 
             return new BrakesAccelModelData(
@@ -17,7 +17,8 @@ export class BrakesAccelModel extends Model<BrakesAccelModelData> {
                 buf.readUInt16LE(5), // Rear Brake Temp
                 buf.readUInt16LE(7), // Accel X
                 buf.readUInt16LE(9), // Accel Y
-                buf.readUInt16LE(11) // Accel Z
+                buf.readUInt16LE(11), // Accel Z
+                timestamp
             );
         }
     };
@@ -44,6 +45,17 @@ export class BrakesAccelModel extends Model<BrakesAccelModelData> {
  */
 export class BrakesAccelModelData extends ModelData {
     readonly Type = ModelDataType.BrakesAccel;
+
+    public get properties() {
+        return {
+            'Oil Pressure (PSI)': (data: BrakesAccelModelData) => data.OilPressure,
+            'Front Brake Temperature (F)': (data: BrakesAccelModelData) => data.FrontBrakeTemp,
+            'Rear Brake Temperature (F)': (data: BrakesAccelModelData) => data.RearBrakeTemp,
+            'Accelerometer X (m/s/s)': (data: BrakesAccelModelData) => data.AccelX,
+            'Accelerometer Y (m/s/s)': (data: BrakesAccelModelData) => data.AccelY,
+            'Accelerometer Z (m/s/s)': (data: BrakesAccelModelData) => data.AccelZ
+        };
+    }
 
     /** Pressure of the oil. */
     OilPressure: number;

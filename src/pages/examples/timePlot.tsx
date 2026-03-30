@@ -9,14 +9,17 @@ import { io, Socket } from 'socket.io-client';
 import { Dataset } from '@site/src/models/telemetryModel';
 import { ModelData, ModelDataType } from '@site/src/models/model';
 import { GPSModelData } from '@site/src/models/gpsModel';
+import { clientDataset } from '@site/src/scripts/client';
 
 var resizeHandler: EventListener | any;
 
 
 export default function TimePlot(): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
-  var dataset: Dataset = new Dataset();
-  var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
+  // var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
+  var xSet = useRef<number[]>(clientDataset.getTimestampsFromKey(yKey) as number[]);
+  var ySet = useRef<number[]>(clientDataset.getSetFromKey(yKey) as number[]);
+  var yKey = 'Latitude (deg)';
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -49,18 +52,18 @@ export default function TimePlot(): JSX.Element {
   const TIME_WINDOW_MS = 15000; // 15 seconds
   
   useEffect(() => {
-    let socket: Socket | null = null;
+    // let socket: Socket | null = null;
 
-    socket = io('http://192.168.137.1:3001');
-    socket.on('telemetry:history', (history: Dataset) => {
-      dataset = Object.assign(new Dataset(), history);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
-    });
+    // socket = io('http://192.168.137.1:3001');
+    // socket.on('telemetry:history', (history: Dataset) => {
+    //   dataset = Object.assign(new Dataset(), history);
+    //   gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
+    // });
 
-    socket.on('telemetry', (sample: ModelData) => {
-      dataset.addDataPoint(sample, MAX_VERTICES);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
-    });
+    // socket.on('telemetry', (sample: ModelData) => {
+    //   dataset.addDataPoint(sample, MAX_VERTICES);
+    //   gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
+    // });
 
     const initPixiApp = async () => {
       // Local refs so cleanup can access them
@@ -125,7 +128,7 @@ export default function TimePlot(): JSX.Element {
       app.stage.addChild(xAxisTitle);
       
       // Y axis name
-      const yAxisTitle = new Text('Latitude', { fontFamily: 'arial', fontSize: 18 });
+      const yAxisTitle = new Text(yKey, { fontFamily: 'arial', fontSize: 18 });
       yAxisTitle.anchor = { x: 0.5, y: 0 };
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
@@ -138,7 +141,10 @@ export default function TimePlot(): JSX.Element {
 
         if (!graphicsRef) return;
 
-        const sampleCount = gpsDataset.current.length;
+        xSet.current = clientDataset.getTimestampsFromKey(yKey) as number[];
+        ySet.current = clientDataset.getSetFromKey(yKey) as number[];
+
+        const sampleCount = Math.min(xSet.current.length, ySet.current.length);
 
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
@@ -154,7 +160,7 @@ export default function TimePlot(): JSX.Element {
         // Determine latest timestamp
         let latestTimestamp = Date.now();
         // if (sampleCount > 0) latestTimestamp = Math.max(latestTimestamp, gpsDataset[gpsDataset.length - 1].Timestamp as number);
-        if (sampleCount > 0) latestTimestamp = Math.max(latestTimestamp, gpsDataset.current[sampleCount - 1].Timestamp);
+        if (sampleCount > 0) latestTimestamp = Math.max(latestTimestamp, xSet.current[sampleCount - 1]);
 
         // Set X data bounds to a sliding window ending at latestTimestamp
         xDataMax = latestTimestamp;
@@ -164,10 +170,11 @@ export default function TimePlot(): JSX.Element {
         for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
           // determine if sample is within time window
           let idx = sampleCount < MAX_VERTICES ? i : sampleCount - MAX_VERTICES + i;
-          const dataPoint: GPSModelData = gpsDataset.current[idx];
-          if ((dataPoint.Timestamp as number) < xDataMin) continue;
-          yDataMax = Math.max(dataPoint.Latitude, yDataMax);
-          yDataMin = Math.min(dataPoint.Latitude, yDataMin);
+          const dataPointX: number = xSet.current[idx];
+          const dataPointY: number = ySet.current[idx];
+          if (dataPointX < xDataMin) continue;
+          yDataMax = Math.max(dataPointY, yDataMax);
+          yDataMin = Math.min(dataPointY, yDataMin);
         }
 
         // Use the data min/max as bounds (fall back to defaults only if no data)
@@ -299,24 +306,26 @@ export default function TimePlot(): JSX.Element {
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        var startingPoint: GPSModelData = sampleCount > 0 ? (sampleCount < MAX_VERTICES ? gpsDataset.current[0] : gpsDataset.current[sampleCount - MAX_VERTICES]) : new GPSModelData(0, 0, 0);
-        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Timestamp as number), convertGraphToScreenY(startingPoint.Latitude));
+        var startingPoint: number = sampleCount > 0 ? (sampleCount < MAX_VERTICES ? ySet.current[0] : ySet.current[sampleCount - MAX_VERTICES]) : 0;
+        var timestamp = sampleCount > 0 ? (sampleCount < MAX_VERTICES ? xSet.current[0] : xSet.current[sampleCount - MAX_VERTICES]) : Date.now();
+        graphicsRef.moveTo(convertGraphToScreenX(startingPoint), convertGraphToScreenY(0));
 
         let x = 0.0, y = 0.0;
         for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          let dataPoint = sampleCount < MAX_VERTICES ? gpsDataset.current[i] : gpsDataset.current[sampleCount - MAX_VERTICES + i];
-          if ((dataPoint.Timestamp as number) < xDataMin) {
+          let dataPointX = sampleCount < MAX_VERTICES ? xSet.current[i] : xSet.current[sampleCount - MAX_VERTICES + i];
+          let dataPointY = sampleCount < MAX_VERTICES ? ySet.current[i] : ySet.current[sampleCount - MAX_VERTICES + i];
+          if (dataPointX < xDataMin) {
             particles[i].alpha = 0;
             continue;
           }
 
-          x = convertGraphToScreenX(dataPoint.Timestamp as number);
-          y = convertGraphToScreenY(dataPoint.Latitude);
+          x = convertGraphToScreenX(dataPointX);
+          y = convertGraphToScreenY(dataPointY);
 
           particles[i].x = x;
           particles[i].y = y;
           // fade older points
-          const ageFactor = (dataPoint.Timestamp as number) - xDataMin;
+          const ageFactor = (dataPointX as number) - xDataMin;
           particles[i].alpha = Math.max(0.05, Math.min(1, ageFactor / (xDataRange)));
         }
 
@@ -413,9 +422,9 @@ export default function TimePlot(): JSX.Element {
         // ignore cleanup errors
       }
 
-      if (socket) {
-        socket.disconnect();
-      }
+      // if (socket) {
+      //   socket.disconnect();
+      // }
     };
   }, []);
 

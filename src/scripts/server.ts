@@ -1,10 +1,8 @@
 import express from 'express';
 import http from 'http';
-import { Server as IOServer } from 'socket.io';
 import bodyParser from 'body-parser';
-import TelemetryModel from './models/telemetryModel.ts';
+import { Server as IOServer } from 'socket.io';
 import { SerialPort } from 'serialport';
-import { PacketType } from './models/model.ts';
 
 const app = express();
 app.use(bodyParser.json());
@@ -13,29 +11,36 @@ app.use(express.static('public'));
 const server = http.createServer(app);
 const io = new IOServer(server, { cors: { origin: '*' } });
 
-const telemetryModel = new TelemetryModel();
-const HISTORY_LIMIT = 1000;
-const GPS_EMIT_PERIOD_MS = 40; // 25 Hz
-
 const TARGET_PRODUCT_ID = '5740';
 const SERIAL_BAUD_RATE = 115200;
 const SERIAL_SCAN_INTERVAL_MS = 2000;
 
 let serialPort: SerialPort | null = null;
 
-// DEMO
-telemetryModel.startDemo();
+const telemetryHistory: { timestamp: number; packet: Buffer }[] = [];
+const MAX_HISTORY_RETURN = 5000;
+
+server.listen(3001, '0.0.0.0', () => {
+    console.log('listening on 0.0.0.0:3001');
+});
+
+io.on('connection', socket => 
+    socket.emit('telemetry:history', telemetryHistory.slice(-MAX_HISTORY_RETURN))
+);
+
+// start scanning for serial device
+findAndConnectSerial();
+setInterval(() => {
+    if (!serialPort) findAndConnectSerial();
+}, SERIAL_SCAN_INTERVAL_MS);
+
+
 
 function handleSerialData(buf: Buffer) {
-    // Testing - set up debug buffer as LoRa packet
-    const gpsBuf = Buffer.alloc(13);
-    gpsBuf[0] = PacketType.GPS; // GPS packet type
-    buf.copy(gpsBuf, 1, 4);
-
-    telemetryModel.parseData(gpsBuf);
+    const data = { timestamp: Date.now(), packet: buf };
+    io.emit('telemetry', data);
+    telemetryHistory.push(data);
 }
-
-telemetryModel.onDataProcessed((data) => io.emit('telemetry', data));
 
 async function findAndConnectSerial() {
     try {
@@ -46,7 +51,7 @@ async function findAndConnectSerial() {
             if (!pid) return false;
             const normalized = pid.replace(/^0x/i, '').toLowerCase();
             return normalized === TARGET_PRODUCT_ID.toLowerCase();
-        }) || (ports.length === 1 ? ports[0] : undefined);
+        }) || (ports.length == 1 ? ports[0] : undefined);
 
         if (match && !serialPort) {
             console.log('serial: connecting to', match.path || match.pnpId || match.productId || match.vendorId || match.manufacturer || match.serialNumber || match);
@@ -71,18 +76,3 @@ async function findAndConnectSerial() {
         console.error('serial: scan error', e);
     }
 }
-// end findAndConnectSerial
-
-// start scanning for serial device
-findAndConnectSerial();
-setInterval(() => {
-    if (!serialPort) findAndConnectSerial();
-}, SERIAL_SCAN_INTERVAL_MS);
-
-io.on('connection', socket => 
-    socket.emit('telemetry:history', telemetryModel.getAllHistory(HISTORY_LIMIT))
-);
-
-server.listen(3001, '0.0.0.0', () => {
-    console.log('listening on 0.0.0.0:3001');
-});

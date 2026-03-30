@@ -13,7 +13,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "dev:server": "nodemon --watch src --exec ts-node src/server.ts",
+    "dev:server": "nodemon --watch src --exec ts-node src/scripts/server.ts",
     "build:server": "tsc -p tsconfig.json",
     "start:server": "node dist/server.js --host 0.0.0.0",
     "dev:all": "concurrently \"npm:start\" \"npm:dev:server\""

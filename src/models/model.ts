@@ -10,7 +10,7 @@ export abstract class Model<T extends ModelData> {
     ////////// Data Parsing and Storage //////////
 
     /** Dictionary storing the handlers corresponding to each supported packet type. */
-    protected abstract readonly packetHandlers: Record<number, (buf: Buffer) => T | null>;
+    protected abstract readonly packetHandlers: Record<number, (buf: Buffer, timestamp?: number) => T | null>;
 
     /** History of parsed data. */
     private dataHistory: T[] = [];
@@ -20,9 +20,9 @@ export abstract class Model<T extends ModelData> {
      * @param buf The buffer containing the LoRa packet data.
      * @returns True if successful, false otherwise.
      */
-    public tryParseData(buf: Buffer): boolean {
+    public tryParseData(buf: Buffer, timestamp?: number): boolean {
         if (this.supportsPacketType(buf[0])) {
-            const data = this.packetHandlers[buf[0]](buf);
+            const data = this.packetHandlers[buf[0]](buf, timestamp);
 
             if (data != null) {
                 this.emit(data);
@@ -111,7 +111,9 @@ export abstract class Model<T extends ModelData> {
 export abstract class ModelData {
     /** The type of data. */
     abstract readonly Type: ModelDataType;
-
+    
+    public abstract get properties(): Record<string, (data: ModelData) => any>;
+    
     /** Time at which this packet was received. */
     readonly Timestamp: EpochTimeStamp;
 

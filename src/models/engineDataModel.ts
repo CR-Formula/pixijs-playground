@@ -8,7 +8,7 @@ import { Model, ModelData, ModelDataType, PacketType } from "./model";
 export class EngineModel extends Model<EngineModelData> {
     protected readonly packetHandlers = {
         // Engine Data Packet
-        [PacketType.EngineData]: (buf: Buffer) => {
+        [PacketType.EngineData]: (buf: Buffer, timestamp?: number) => {
             if (buf.length < 13) return null;
 
             return new EngineModelData(
@@ -17,7 +17,8 @@ export class EngineModel extends Model<EngineModelData> {
                 buf.readUInt16LE(5), // Steering
                 buf.readUInt16LE(7), // RPM
                 buf.readUInt16LE(9), // Throttle Position Sensor
-                buf.readUInt16LE(11) // Lambda
+                buf.readUInt16LE(11), // Lambda
+                timestamp
             );
         }
     };
@@ -44,6 +45,17 @@ export class EngineModel extends Model<EngineModelData> {
  */
 export class EngineModelData extends ModelData {
     readonly Type = ModelDataType.Engine;
+    
+    public get properties() {
+        return {
+            'Brake Pressure (PSI)': (data: EngineModelData) => data.BrakePressure,
+            'Throttle Position Analog (%)': (data: EngineModelData) => data.ThrottleADC,
+            'Steering Angle (deg)': (data: EngineModelData) => data.Steering,
+            'Engine RPM': (data: EngineModelData) => data.RPM,
+            'Throttle Position ECU (%)': (data: EngineModelData) => data.ThrottlePosSensor,
+            'Lambda': (data: EngineModelData) => data.Lambda
+        };
+    }
 
     /** Recorded pressure of the brakes. */
     readonly BrakePressure: number;

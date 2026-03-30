@@ -7,12 +7,13 @@ import { Model, ModelData, ModelDataType, PacketType } from "./model";
  */
 export class TemperatureModel extends Model<TemperatureModelData> {
     protected readonly packetHandlers = {
-        [PacketType.Temperature]: (buf: Buffer) => {
+        [PacketType.Temperature]: (buf: Buffer, timestamp?: number) => {
             if (buf.length < 5) return null;
 
             return new TemperatureModelData(
                 buf.readInt16LE(1), // Air Temp
-                buf.readInt16LE(3)  // Coolant Temp
+                buf.readInt16LE(3),  // Coolant Temp
+                timestamp
             )
         }
     };
@@ -35,6 +36,13 @@ export class TemperatureModel extends Model<TemperatureModelData> {
  */
 export class TemperatureModelData extends ModelData {
     readonly Type = ModelDataType.Temperature;
+
+    public get properties() {
+        return {
+            'Air Temperature (F)': (data: TemperatureModelData) => data.AirTemp,
+            'Coolant Temperature (F)': (data: TemperatureModelData) => data.CoolTemp
+        };
+    }
 
     /** Air temperature. */
     AirTemp: number;

@@ -8,13 +8,14 @@ import { Model, ModelData, ModelDataType, PacketType } from "./model";
 export class GPSModel extends Model<GPSModelData> {
     protected readonly packetHandlers = {
         // GPS Packet
-        [PacketType.GPS]: (buf: Buffer) => {
+        [PacketType.GPS]: (buf: Buffer, timestamp?: number) => {
             if (buf.length < 13) return null;
 
             return new GPSModelData(
                 buf.readInt32LE(1) / 100000000,
                 buf.readInt32LE(5) / 100000000,
-                buf.readUInt32LE(9)
+                buf.readUInt32LE(9),
+                timestamp
             );
         }
     };
@@ -38,6 +39,14 @@ export class GPSModel extends Model<GPSModelData> {
  */
 export class GPSModelData extends ModelData {
     readonly Type = ModelDataType.GPS;
+    
+    public get properties() {
+        return {
+            'Latitude (deg)': (data: GPSModelData) => data.Latitude,
+            'Longitude (deg)': (data: GPSModelData) => data.Longitude,
+            'Speed (m/s)': (data: GPSModelData) => data.Speed
+        };
+    };
 
     /** GPS latitude position. */
     readonly Latitude: number;

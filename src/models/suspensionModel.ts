@@ -8,12 +8,13 @@ import { Model, ModelData, ModelDataType, PacketType } from "./model";
 export class SuspensionModel extends Model<SuspensionModelData> {
     protected readonly packetHandlers = {
         // Suspension Packet
-        [PacketType.Suspension]: (buf: Buffer) => {
+        [PacketType.Suspension]: (buf: Buffer, timestamp?: number) => {
             if (buf.length < 5) return null;
             
             return new SuspensionModelData(
                 buf.readUInt16LE(1), // Front Pot
-                buf.readUInt16LE(3)  // Rear Pot
+                buf.readUInt16LE(3), // Rear Pot
+                timestamp
             );
         }
     };
@@ -36,6 +37,13 @@ export class SuspensionModel extends Model<SuspensionModelData> {
  */
 export class SuspensionModelData extends ModelData {
     readonly Type = ModelDataType.Suspension;
+    
+    public get properties() {
+        return {
+            'Front Right Height (mm)': (data: SuspensionModelData) => data.FrontPot,
+            'Rear Right Height (mm)': (data: SuspensionModelData) => data.RearPot
+        };
+    }
 
     /** Potentiometer value for the front right damper. */
     readonly FrontPot: number;

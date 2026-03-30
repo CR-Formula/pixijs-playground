@@ -20,34 +20,32 @@ export default class TelemetryModel {
         new BrakesAccelModel(),
         new TemperatureModel()
     ];
-    
-    /** Handles passing data to the server. */
-    private emitter: EventEmitter = new EventEmitter();
+
+    /** The dataset storing all telemetry data. */
+    public readonly dataset: Dataset = new Dataset();
+
+    /** The maximum history size for each data set. */
+    private readonly MAX_HISTORY = 1000;
 
     /**
      * Creates an instance of the TelemetryModel, setting up all individual models.
      */
     public constructor() {
         // Set up event listeners
-        for (const model of this.models)
-            model.onDataAdded((data) => {this.emitter.emit('telemData', data)});
-    }
-
-    /**
-     * Subscribes to the event called when data is successfully processed by this model.
-     * @param listener The function to run when data is processed by this model.
-     */
-    public onDataProcessed(listener: (data: ModelData) => void) {
-        this.emitter.on('telemData', listener);
+        for (const model of this.models) {
+            model.onDataAdded((data) => {
+                this.dataset.addDataPoint(data, this.MAX_HISTORY);
+            });
+        }
     }
 
     /**
      * Attempts to parse the given LoRa packet buffer.
      */
-    public parseData(buf: Buffer) {
+    public parseData(buf: Buffer, timestamp?: number) {
         for (const model of this.models) {
             // Break early once successful
-            if (model.tryParseData(buf)) return;
+            if (model.tryParseData(buf, timestamp)) return;
         }
     }
 
@@ -91,7 +89,6 @@ export default class TelemetryModel {
     public stopDemo() {
         clearInterval(this.demoRun);
     }
-    
 }
 
 
@@ -151,5 +148,32 @@ export class Dataset {
      */
     public getSetHistory(type: ModelDataType, length: number) {
         return this.getSet(type).slice(-length);
+    }
+
+    /**
+     * Gets the values of a specific property from all data points in the dataset.
+     * @param key The name of the property to get from each data point.
+     * @returns An array of the property values.
+     */
+    public getSetFromKey(key: string): any[] {
+        for (const set of this.dataset) {
+            if (set.length > 0 && set[0].properties[key])
+                return set.map((data) => data.properties[key](data));
+        }
+
+        return [];
+    }
+
+    /**
+     * Gets the timestamps of all data points in the dataset that have a specific property.
+     * @param key The name of the property to get the timestamps for.
+     * @returns An array of the timestamps for data points that have the specified property.
+     */
+    public getTimestampsFromKey(key: string): number[] {
+        for (const set of this.dataset) {
+            if (set.length > 0 && set[0].properties[key])
+                return set.map((data) => data.Timestamp);
+        }
+        return [];
     }
 }
