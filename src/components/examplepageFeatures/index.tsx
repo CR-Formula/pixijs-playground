@@ -10,55 +10,106 @@ type FeatureItem = {
 };
 
 const FeatureList: FeatureItem[] = [
+  // {
+  //   title: 'Moving Line',
+  //   page: '/examples/movingLine',
+  //   Svg: require('@site/static/img/helloTriangle.svg').default,
+  //   description: (
+  //     <>
+  //       This example displays simple use of drawing a triangle.
+  //     </>
+  //   ),
+  // },
+  // {
+  //   title: 'Time Domain',
+  //   // page: '/examples/timeDomain',
+  //   page: '/examples/timePlot',
+  //   Svg: require('@site/static/img/movingLine.svg').default,
+  //   description: (
+  //     <>
+  //       This example displays a randomly moving line.
+  //     </>
+  //   ),
+  // },
+  // {
+  //   title: 'Wheel',
+  //   page: '/examples/Wheel',
+  //   Svg: require('@site/static/img/movingLine.svg').default,
+  //   description: (
+  //     <>
+  //       Makes a wheel and rotates it clockwise continuously.
+  //     </>
+  //   ),
+  // },
+  // {
+  //   title: 'Triangle',
+  //   page: '/examples/helloTriangle',
+  //   Svg: require('@site/static/img/movingLine.svg').default,
+  //   description: (
+  //     <>
+  //       Makes a Triangle.
+  //     </>
+  //   ),
+  // },
+  // {
+  //   title: 'Reading Serial',
+  //   page: '/examples/serial',
+  //   Svg: require('@site/static/img/serial.svg').default,
+  //   description: (
+  //     <>
+  //       This describes how to connect a serial input and how it outputs
+  //     </>
+  //   ),
+  // },
   {
-    title: 'Moving Line',
-    page: '/examples/movingLine',
-    Svg: require('@site/static/img/helloTriangle.svg').default,
-    description: (
-      <>
-        This example displays simple use of drawing a triangle.
-      </>
-    ),
-  },
-  {
-    title: 'Time Domain',
-    page: '/examples/timeDomain',
+    title: 'Driving Plot',
+    page: '/examples/drivingPlot',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
-        This example displays a randomly moving line.
+        Combined view of Controls and GPS data.
       </>
-    ),
+    )
   },
   {
-    title: 'Wheel',
-    page: '/examples/Wheel',
+    title: 'GPS Plot',
+    page: '/examples/gpsPlot',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
-        Makes a wheel and rotates it clockwise continuously.
+        This example shows a dot plot graph.
       </>
-    ),
+    )
   },
   {
-    title: 'Triangle',
-    page: '/examples/helloTriangle',
+    title: 'Accel Plot',
+    page: '/examples/accelPlot',
     Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
-        Makes a Triangle.
+        IMU Acceleration data from X and Y axes.
       </>
-    ),
+    )
   },
   {
-    title: 'Reading Serial',
-    page: '/examples/serial',
-    Svg: require('@site/static/img/serial.svg').default,
+    title: 'Controls Plot',
+    page: '/examples/controlsPlot',
+    Svg: require('@site/static/img/movingLine.svg').default,
     description: (
       <>
-        This describes how to connect a serial input and how it outputs
+        Throttle and Brake data over time.
       </>
-    ),
+    )
+  },
+  {
+    title: 'Battery Plot',
+    page: '/examples/batteryPlot',
+    Svg: require('@site/static/img/movingLine.svg').default,
+    description: (
+      <>
+        Battery voltage and temperature data over time.
+      </>
+    )
   }
 ];
 

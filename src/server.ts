@@ -1,0 +1,84 @@
+import express from 'express';
+import http from 'http';
+import { Server as IOServer } from 'socket.io';
+import bodyParser from 'body-parser';
+import Telemetry from './models/telemetryModel.ts';
+import { SerialPort } from 'serialport';
+import { PacketType } from './models/model.ts';
+
+const app = express();
+app.use(bodyParser.json());
+app.use(express.static('public'));
+
+const server = http.createServer(app);
+const io = new IOServer(server, { cors: { origin: '*' } });
+
+const telemetryModel = new Telemetry();
+const HISTORY_LIMIT = 1000;
+const GPS_EMIT_PERIOD_MS = 40; // 25 Hz
+
+const TARGET_PRODUCT_ID = '5740';
+const SERIAL_BAUD_RATE = 115200;
+const SERIAL_SCAN_INTERVAL_MS = 2000;
+
+let serialPort: SerialPort | null = null;
+
+// DEMO
+// telemetryModel.startDemo();
+
+function handleSerialData(buf: Buffer) {
+    telemetryModel.parseData(buf);
+}
+
+telemetryModel.onDataProcessed((data) => io.emit('telemetry', data));
+
+async function findAndConnectSerial() {
+    try {
+        const ports = await SerialPort.list();
+
+        const match = ports.find(p => {
+            // const pid = (p.productId || '') as string;
+            // if (!pid) return false;
+            // const normalized = pid.replace(/^0x/i, '').toLowerCase();
+            // return normalized === TARGET_PRODUCT_ID.toLowerCase();
+            return true;
+        }) || (ports.length === 1 ? ports[0] : undefined);
+
+        if (match && !serialPort) {
+            console.log('serial: connecting to', match.path || match.pnpId || match.productId || match.vendorId || match.manufacturer || match.serialNumber || match);
+            serialPort = new SerialPort({ path: match.path as string, baudRate: SERIAL_BAUD_RATE, autoOpen: false });
+            serialPort.open(err => {
+                if (err) {
+                    console.error('serial: open error', err);
+                    serialPort = null;
+                    return;
+                }
+                console.log('serial: connected');
+                // listen for raw binary data
+                serialPort!.on('data', handleSerialData);
+                serialPort!.on('close', () => {
+                    console.log('serial: closed');
+                    serialPort = null;
+                });
+                serialPort!.on('error', (e: any) => console.error('serial: error', e));
+            });
+        }
+    } catch (e) {
+        console.error('serial: scan error', e);
+    }
+}
+// end findAndConnectSerial
+
+// start scanning for serial device
+findAndConnectSerial();
+setInterval(() => {
+    if (!serialPort) findAndConnectSerial();
+}, SERIAL_SCAN_INTERVAL_MS);
+
+io.on('connection', socket => 
+    socket.emit('telemetry:history', telemetryModel.getAllHistory(HISTORY_LIMIT))
+);
+
+server.listen(3001, '0.0.0.0', () => {
+    console.log('listening on 0.0.0.0:3001');
+});
