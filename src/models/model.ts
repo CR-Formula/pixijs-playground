@@ -22,7 +22,7 @@ export abstract class Model<T extends ModelData> {
      */
     public tryParseData(buf: Buffer): boolean {
         if (this.supportsPacketType(buf[0])) {
-            const data = this.packetHandlers[buf[0]](buf);
+            const data = this.packetHandlers[buf[0]](buf.subarray(1, buf.length));
 
             if (data != null) {
                 this.emit(data);
@@ -133,11 +133,11 @@ export abstract class ModelData {
  * @author AWBirky
  */
 export enum ModelDataType {
-    Suspension,
+    Controls,
     GPS,
-    Engine,
-    BrakesAccel,
-    Temperature
+    IMU,
+    Battery,
+    Inverter
 }
 
 /**
@@ -146,9 +146,11 @@ export enum ModelDataType {
  * @author AWBirky
  */
 export enum PacketType {
-  Suspension = 0x01,
-  GPS = 0x02,
-  EngineData = 0x03,
-  BrakesAccel = 0x04,
-  Temperature = 0x05,
+    Controls = 0x01,
+    GPS = 0x02,
+    GPSDelta = 0x03,
+    IMU = 0x04,
+    BattVolt = 0x05,
+    BattTemp = 0x06,
+    Inverter = 0x07
 }

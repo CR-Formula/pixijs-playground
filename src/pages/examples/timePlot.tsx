@@ -8,15 +8,34 @@ import styles from '../css/examples.module.css';
 import { io, Socket } from 'socket.io-client';
 import { Dataset } from '@site/src/models/telemetryModel';
 import { ModelData, ModelDataType } from '@site/src/models/model';
-import { GPSModelData } from '@site/src/models/gpsModel';
 
 var resizeHandler: EventListener | any;
 
 
-export default function TimePlot(): JSX.Element {
+interface Source {
+  dataType: ModelDataType;
+  selector: (d: ModelData) => number;
+  color?: number;
+  label?: string;
+}
+
+export default function TimePlot({
+  sources = [{ dataType: ModelDataType.GPS, selector: (d: ModelData) => ((d as any).Latitude ?? 0), color: 0x000000, label: 'GPS' }],
+  xLabel = 'Time',
+  yLabel = 'Value',
+  title = 'Time Plot',
+  subtitle,
+  inline = false,
+}: {
+  sources?: Source[];
+  xLabel?: string;
+  yLabel?: string;
+  title?: string;
+  subtitle?: string;
+  inline?: boolean;
+}): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   var dataset: Dataset = new Dataset();
-  var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -54,12 +73,10 @@ export default function TimePlot(): JSX.Element {
     socket = io('http://192.168.137.1:3001');
     socket.on('telemetry:history', (history: Dataset) => {
       dataset = Object.assign(new Dataset(), history);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
     });
 
     socket.on('telemetry', (sample: ModelData) => {
       dataset.addDataPoint(sample, MAX_VERTICES);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
     });
 
     const initPixiApp = async () => {
@@ -70,8 +87,6 @@ export default function TimePlot(): JSX.Element {
       const yLabelPool: Text[] = [];
       let createdTexts = 0;
       let createdGraphics = 0;
-      const partContainer: ParticleContainer = new ParticleContainer({ dynamicProperties: { position: true, color: true } } );
-      const particles: Particle[] = [];
       
       // Create a new application
       const app = new Application();
@@ -87,17 +102,30 @@ export default function TimePlot(): JSX.Element {
     
       // Create plot point texture
       const pointGraphics: Graphics = new Graphics();
-      pointGraphics.circle(0, 0, 1);
-      pointGraphics.stroke({ width: 4, color: 0x000000 });
+      pointGraphics.beginFill(0xffffff);
+      pointGraphics.drawCircle(0, 0, 3);
+      pointGraphics.endFill();
       const pointTex: Texture = app.renderer.generateTexture(pointGraphics);
-      app.stage.addChild(partContainer);
 
-      // Initialize particles (data points)
-      for (let i = 0; i < MAX_VERTICES; i++) {
-        const p: Particle = new Particle({ texture: pointTex, x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 });
-        p.color = 0x00000000;
-        partContainer.addParticle(p);
-        particles.push(p);
+      // Create per-source particle containers and particle pools
+      const partContainers: ParticleContainer[] = [];
+      const particlesBySource: Particle[][] = [];
+      for (let s = 0; s < sources.length; s++) {
+        const src = sources[s];
+        const container: ParticleContainer = new ParticleContainer({ dynamicProperties: { position: true, color: true } });
+        partContainers.push(container);
+        app.stage.addChild(container);
+
+        const srcParticles: Particle[] = [];
+        for (let i = 0; i < MAX_VERTICES; i++) {
+          const p: Particle = new Particle({ texture: pointTex, x: 0, y: 0, anchorX: 0.5, anchorY: 0.5 });
+          // set initial tint and transparent alpha
+          (p as any).tint = (src.color ?? 0x000000);
+          p.alpha = 0;
+          container.addParticle(p);
+          srcParticles.push(p);
+        }
+        particlesBySource.push(srcParticles);
       }
 
       // Prepare a small pool of Y-label Text objects and reuse them every frame
@@ -120,12 +148,12 @@ export default function TimePlot(): JSX.Element {
       }
 
       // X axis name
-      const xAxisTitle = new Text('Time', { fontFamily: 'arial', fontSize: 18 });
+      const xAxisTitle = new Text(xLabel, { fontFamily: 'arial', fontSize: 18 });
       xAxisTitle.anchor = { x: 0.5, y: 1 };
       app.stage.addChild(xAxisTitle);
       
       // Y axis name
-      const yAxisTitle = new Text('Latitude', { fontFamily: 'arial', fontSize: 18 });
+      const yAxisTitle = new Text(yLabel, { fontFamily: 'arial', fontSize: 18 });
       yAxisTitle.anchor = { x: 0.5, y: 0 };
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
@@ -138,8 +166,6 @@ export default function TimePlot(): JSX.Element {
 
         if (!graphicsRef) return;
 
-        const sampleCount = gpsDataset.current.length;
-
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
         xDataMax = -Infinity, xDataMin = Infinity;
@@ -151,23 +177,31 @@ export default function TimePlot(): JSX.Element {
         yAxisTitle.x = 10;
         yAxisTitle.y = (graphYMin + graphYMax) / 2;
         
-        // Determine latest timestamp
+        // Determine latest timestamp across all sources
         let latestTimestamp = Date.now();
-        // if (sampleCount > 0) latestTimestamp = Math.max(latestTimestamp, gpsDataset[gpsDataset.length - 1].Timestamp as number);
-        if (sampleCount > 0) latestTimestamp = Math.max(latestTimestamp, gpsDataset.current[sampleCount - 1].Timestamp);
+        for (const src of sources) {
+          const arr = dataset.getSet(src.dataType) as ModelData[];
+          if (arr && arr.length > 0) latestTimestamp = Math.max(latestTimestamp, (arr[arr.length - 1].Timestamp as number));
+        }
 
         // Set X data bounds to a sliding window ending at latestTimestamp
         xDataMax = latestTimestamp;
         xDataMin = xDataMax - TIME_WINDOW_MS;
 
-        // Compute Y bounds from current visible samples
-        for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          // determine if sample is within time window
-          let idx = sampleCount < MAX_VERTICES ? i : sampleCount - MAX_VERTICES + i;
-          const dataPoint: GPSModelData = gpsDataset.current[idx];
-          if ((dataPoint.Timestamp as number) < xDataMin) continue;
-          yDataMax = Math.max(dataPoint.Latitude, yDataMax);
-          yDataMin = Math.min(dataPoint.Latitude, yDataMin);
+        // Compute Y bounds from current visible samples across all sources
+        for (const src of sources) {
+          const arr = dataset.getSet(src.dataType) as ModelData[];
+          if (!arr) continue;
+          const sampleCount = arr.length;
+          for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+            let idx = sampleCount < MAX_VERTICES ? i : sampleCount - MAX_VERTICES + i;
+            const dataPoint: ModelData = arr[idx];
+            if ((dataPoint.Timestamp as number) < xDataMin) continue;
+            const val = src.selector(dataPoint);
+            if (!isFinite(val)) continue;
+            yDataMax = Math.max(val, yDataMax);
+            yDataMin = Math.min(val, yDataMin);
+          }
         }
 
         // Use the data min/max as bounds (fall back to defaults only if no data)
@@ -298,26 +332,38 @@ export default function TimePlot(): JSX.Element {
 
         ///// Plot points /////
 
-        // Start the line from the first point in the sliding window
-        var startingPoint: GPSModelData = sampleCount > 0 ? (sampleCount < MAX_VERTICES ? gpsDataset.current[0] : gpsDataset.current[sampleCount - MAX_VERTICES]) : new GPSModelData(0, 0, 0);
-        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Timestamp as number), convertGraphToScreenY(startingPoint.Latitude));
+        // Plot points per source
+        for (let s = 0; s < sources.length; s++) {
+          const src = sources[s];
+          const arr = dataset.getSet(src.dataType) as ModelData[];
+          const srcParticles = particlesBySource[s];
+          if (!arr || !srcParticles) continue;
+          const sampleCount = arr.length;
+          for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+            let idx = sampleCount < MAX_VERTICES ? i : sampleCount - MAX_VERTICES + i;
+            const dataPoint = arr[idx];
+            if ((dataPoint.Timestamp as number) < xDataMin) {
+              srcParticles[i].alpha = 0;
+              continue;
+            }
 
-        let x = 0.0, y = 0.0;
-        for (let i = 0; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          let dataPoint = sampleCount < MAX_VERTICES ? gpsDataset.current[i] : gpsDataset.current[sampleCount - MAX_VERTICES + i];
-          if ((dataPoint.Timestamp as number) < xDataMin) {
-            particles[i].alpha = 0;
-            continue;
+            const val = src.selector(dataPoint);
+            if (!isFinite(val)) {
+              srcParticles[i].alpha = 0;
+              continue;
+            }
+
+            const x = convertGraphToScreenX(dataPoint.Timestamp as number);
+            const y = convertGraphToScreenY(val);
+
+            srcParticles[i].x = x;
+            srcParticles[i].y = y;
+            // fade older points
+            const ageFactor = (dataPoint.Timestamp as number) - xDataMin;
+            srcParticles[i].alpha = Math.max(0.05, Math.min(1, ageFactor / (xDataRange)));
+            // set tint if provided
+            if ((src.color ?? null) !== null) (srcParticles[i] as any).tint = src.color;
           }
-
-          x = convertGraphToScreenX(dataPoint.Timestamp as number);
-          y = convertGraphToScreenY(dataPoint.Latitude);
-
-          particles[i].x = x;
-          particles[i].y = y;
-          // fade older points
-          const ageFactor = (dataPoint.Timestamp as number) - xDataMin;
-          particles[i].alpha = Math.max(0.05, Math.min(1, ageFactor / (xDataRange)));
         }
 
 
@@ -420,11 +466,22 @@ export default function TimePlot(): JSX.Element {
   }, []);
 
 
+  if (inline) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+          <div className={styles.canvas} ref={pixiContainerRef} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout>
       <header className={clsx(styles.headerBanner)}>
         <div className="container">
-          <Heading as="h1" className="example_title">Time Plot</Heading>
+          <Heading as="h1" className="example_title">{title}</Heading>
+          {subtitle ? <p style={{ marginTop: 8 }}>{subtitle}</p> : null}
         </div>
       </header>
       <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>

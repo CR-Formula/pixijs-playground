@@ -2,7 +2,7 @@ import express from 'express';
 import http from 'http';
 import { Server as IOServer } from 'socket.io';
 import bodyParser from 'body-parser';
-import TelemetryModel from './models/telemetryModel.ts';
+import Telemetry from './models/telemetryModel.ts';
 import { SerialPort } from 'serialport';
 import { PacketType } from './models/model.ts';
 
@@ -13,7 +13,7 @@ app.use(express.static('public'));
 const server = http.createServer(app);
 const io = new IOServer(server, { cors: { origin: '*' } });
 
-const telemetryModel = new TelemetryModel();
+const telemetryModel = new Telemetry();
 const HISTORY_LIMIT = 1000;
 const GPS_EMIT_PERIOD_MS = 40; // 25 Hz
 
@@ -24,15 +24,10 @@ const SERIAL_SCAN_INTERVAL_MS = 2000;
 let serialPort: SerialPort | null = null;
 
 // DEMO
-telemetryModel.startDemo();
+// telemetryModel.startDemo();
 
 function handleSerialData(buf: Buffer) {
-    // Testing - set up debug buffer as LoRa packet
-    const gpsBuf = Buffer.alloc(13);
-    gpsBuf[0] = PacketType.GPS; // GPS packet type
-    buf.copy(gpsBuf, 1, 4);
-
-    telemetryModel.parseData(gpsBuf);
+    telemetryModel.parseData(buf);
 }
 
 telemetryModel.onDataProcessed((data) => io.emit('telemetry', data));
@@ -42,10 +37,11 @@ async function findAndConnectSerial() {
         const ports = await SerialPort.list();
 
         const match = ports.find(p => {
-            const pid = (p.productId || '') as string;
-            if (!pid) return false;
-            const normalized = pid.replace(/^0x/i, '').toLowerCase();
-            return normalized === TARGET_PRODUCT_ID.toLowerCase();
+            // const pid = (p.productId || '') as string;
+            // if (!pid) return false;
+            // const normalized = pid.replace(/^0x/i, '').toLowerCase();
+            // return normalized === TARGET_PRODUCT_ID.toLowerCase();
+            return true;
         }) || (ports.length === 1 ? ports[0] : undefined);
 
         if (match && !serialPort) {

@@ -1,24 +1,39 @@
 import { Application, Graphics, Particle, ParticleContainer, Text, Texture } from 'pixi.js';
 import { JSX, useEffect, useRef } from 'react';
-import SyntaxHighlighter from "react-syntax-highlighter";
-import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import styles from '../css/examples.module.css';
 import { io, Socket } from 'socket.io-client';
 import { ModelData, ModelDataType } from '@site/src/models/model';
-import { GPSModelData } from '@site/src/models/gpsModel';
 import { Dataset } from '@site/src/models/telemetryModel';
 
 var resizeHandler: EventListener | any;
 
 
-export default function DotPlot(): JSX.Element {
+export default function DotPlot({
+  dataType = 0,
+  xSelector = () => 0,
+  ySelector = () => 0,
+  xLabel = 'X',
+  yLabel = 'Y',
+  title = 'Empty Plot',
+  subtitle,
+  inline = false,
+}: {
+  dataType?: ModelDataType;
+  xSelector?: (d: ModelData) => number;
+  ySelector?: (d: ModelData) => number;
+  xLabel?: string;
+  yLabel?: string;
+  title?: string;
+  subtitle?: string;
+  inline?: boolean;
+}): JSX.Element {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   var dataset: Dataset = new Dataset();
-  var gpsDataset = useRef(dataset.getSet(ModelDataType.GPS) as GPSModelData[]);
-  // var gpsDataset: GPSModelData[] = [];
+  var dataSetRef = useRef<ModelData[]>(dataset.getSet(dataType) as ModelData[]);
+  // var dataSet: ModelData[] = [];
 
   // Graph bounds
   const LEFT_MARGIN = 90;
@@ -26,10 +41,10 @@ export default function DotPlot(): JSX.Element {
   const BOTTOM_MARGIN = 70;
   const TOP_MARGIN = 25;
   const GRAPH_MARGIN = 25;
-  const X_MIN_LIMIT = -2;
-  const X_MAX_LIMIT = 2;
-  const Y_MIN_LIMIT = -2;
-  const Y_MAX_LIMIT = 2;
+  const X_MIN_LIMIT = -10;
+  const X_MAX_LIMIT = 10;
+  const Y_MIN_LIMIT = -10;
+  const Y_MAX_LIMIT = 10;
   var canvasWidth = 0, canvasHeight = 0;
   var xDataMax = -Infinity, xDataMin = Infinity;
   var yDataMax = -Infinity, yDataMin = Infinity;
@@ -48,8 +63,8 @@ export default function DotPlot(): JSX.Element {
   var yTickInterval = 0, yTargetSpacing = 0, yBasePower = 0, numYTicks = 0;
 
   // Graph data
-  const MAX_VERTICES = 1000;
-  var startingPoint = { Longitude: 0, Latitude: 0 };
+  const MAX_VERTICES = 10;
+  // var startingPoint = { Longitude: 0, Latitude: 0 };
   
   useEffect(() => {
     let socket: Socket | null = null;
@@ -57,12 +72,12 @@ export default function DotPlot(): JSX.Element {
     socket = io('http://192.168.137.1:3001');
     socket.on('telemetry:history', (history: Dataset) => {
       dataset = Object.assign(new Dataset(), history);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
+      dataSetRef.current = dataset.getSet(dataType) as ModelData[];
     });
 
     socket.on('telemetry', (sample: ModelData) => {
       dataset.addDataPoint(sample, MAX_VERTICES);
-      gpsDataset.current = dataset.getSet(ModelDataType.GPS) as GPSModelData[];
+      dataSetRef.current = dataset.getSet(dataType) as ModelData[];
     });
 
     const initPixiApp = async () => {
@@ -123,12 +138,12 @@ export default function DotPlot(): JSX.Element {
       }
 
       // X axis name
-      const xAxisTitle = new Text('TPS', { fontFamily: 'arial', fontSize: 18 });
+      const xAxisTitle = new Text(xLabel, { fontFamily: 'arial', fontSize: 18 });
       xAxisTitle.anchor = { x: 0.5, y: 1 };
       app.stage.addChild(xAxisTitle);
       
       // Y axis name
-      const yAxisTitle = new Text('RPM', { fontFamily: 'arial', fontSize: 18 });
+      const yAxisTitle = new Text(yLabel, { fontFamily: 'arial', fontSize: 18 });
       yAxisTitle.anchor = { x: 0.5, y: 0 };
       yAxisTitle.rotation = -Math.PI / 2;
       app.stage.addChild(yAxisTitle);
@@ -141,7 +156,7 @@ export default function DotPlot(): JSX.Element {
 
         if (!graphicsRef) return;
 
-        const sampleCount = gpsDataset.current.length;
+        const sampleCount = dataSetRef.current.length;
 
         // Reuse graphics: clear instead of creating/destroying every frame
         graphicsRef.clear();
@@ -155,25 +170,35 @@ export default function DotPlot(): JSX.Element {
         yAxisTitle.y = (graphYMin + graphYMax) / 2;
         
         // Resize the graph bounds to fit the shown points
-        for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          // let dataPoint = sampleCount < MAX_VERTICES ? dataset[i] : dataset[sampleCount - MAX_VERTICES + i];
-          let dataPoint: GPSModelData = gpsDataset.current[i];
-          
-          xDataMax = Math.max(dataPoint.Longitude, xDataMax);
-          xDataMin = Math.min(dataPoint.Longitude, xDataMin);
-          yDataMax = Math.max(dataPoint.Latitude, yDataMax);
-          yDataMin = Math.min(dataPoint.Latitude, yDataMin);
-        }
+        // for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
+        //   let dataPoint: ModelData = dataSetRef.current[i];
+
+        //   const xv = xSelector(dataPoint);
+        //   const yv = ySelector(dataPoint);
+
+        //   xDataMax = Math.max(xv, xDataMax);
+        //   xDataMin = Math.min(xv, xDataMin);
+        //   yDataMax = Math.max(yv, yDataMax);
+        //   yDataMin = Math.min(yv, yDataMin);
+        // }
 
         // Use the data min/max as bounds (fall back to limits only if no data)
-        if (!isFinite(xDataMin) || !isFinite(xDataMax)) {
-          xDataMin = X_MIN_LIMIT;
-          xDataMax = X_MAX_LIMIT;
-        }
-        if (!isFinite(yDataMin) || !isFinite(yDataMax)) {
-          yDataMin = Y_MIN_LIMIT;
-          yDataMax = Y_MAX_LIMIT;
-        }
+        xDataMin = X_MIN_LIMIT;
+        xDataMax = X_MAX_LIMIT;
+        yDataMin = Y_MIN_LIMIT;
+        yDataMax = Y_MAX_LIMIT;
+        // xDataMin = Math.max(xDataMin, X_MIN_LIMIT);
+        // xDataMax = Math.min(xDataMax, X_MAX_LIMIT);
+        // yDataMin = Math.max(yDataMin, Y_MIN_LIMIT);
+        // yDataMax = Math.min(yDataMax, Y_MAX_LIMIT);
+        // if (!isFinite(xDataMin) || !isFinite(xDataMax)) {
+        //   xDataMin = X_MIN_LIMIT;
+        //   xDataMax = X_MAX_LIMIT;
+        // }
+        // if (!isFinite(yDataMin) || !isFinite(yDataMax)) {
+        //   yDataMin = Y_MIN_LIMIT;
+        //   yDataMax = Y_MAX_LIMIT;
+        // }
 
         // Add a small fractional padding around the data so points don't sit on the axes
         const PAD_FRACTION = 0.03; // 3% padding
@@ -330,17 +355,19 @@ export default function DotPlot(): JSX.Element {
         ///// Plot points /////
 
         // Start the line from the first point in the sliding window
-        // startingPoint = dataset.length > 0 ? (sampleCount < MAX_VERTICES ? dataset[0] : dataset[dataset.length - MAX_VERTICES]) : { Longitude: 0, Latitude: 0 };
-        let startingPoint: GPSModelData = sampleCount > 0 ? gpsDataset.current[0] : new GPSModelData(0, 0, 0);
-        graphicsRef.moveTo(convertGraphToScreenX(startingPoint.Longitude), convertGraphToScreenY(startingPoint.Latitude));
+        const startingPoint: ModelData | null = sampleCount > 0 ? dataSetRef.current[0] : null;
+        if (startingPoint) {
+          graphicsRef.moveTo(convertGraphToScreenX(xSelector(startingPoint)), convertGraphToScreenY(ySelector(startingPoint)));
+        } else {
+          graphicsRef.moveTo(convertGraphToScreenX(0), convertGraphToScreenY(0));
+        }
 
         let x = 0.0, y = 0.0;
         for (let i = 1; i < Math.min(sampleCount, MAX_VERTICES); i++) {
-          // let dataPoint = sampleCount < MAX_VERTICES ? dataset[i] : dataset[dataset.length - MAX_VERTICES + i];
-          let dataPoint: GPSModelData = gpsDataset.current[i];
+          let dataPoint: ModelData = dataSetRef.current[i];
 
-          x = convertGraphToScreenX(dataPoint.Longitude);
-          y = convertGraphToScreenY(dataPoint.Latitude);
+          x = convertGraphToScreenX(xSelector(dataPoint));
+          y = convertGraphToScreenY(ySelector(dataPoint));
 
           particles[i].x = x;
           particles[i].y = y;
@@ -452,14 +479,23 @@ export default function DotPlot(): JSX.Element {
         socket.disconnect();
       }
     };
-  }, []);
+  }, [dataType]);
 
+
+  if (inline) {
+    return (
+      <div style={{ display: 'flex' }}>
+        <div className={styles.canvas} ref={pixiContainerRef} />
+      </div>
+    );
+  }
 
   return (
     <Layout>
       <header className={clsx(styles.headerBanner)}>
         <div className="container">
-          <Heading as="h1" className="example_title">Dot Plot</Heading>
+          <Heading as="h1" className="example_title">{title}</Heading>
+          {subtitle ? <p style={{ marginTop: 8 }}>{subtitle}</p> : null}
         </div>
       </header>
       <main style={{ display: 'flex' }}>

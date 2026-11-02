@@ -1,9 +1,9 @@
 import { Model, ModelData, ModelDataType } from "./model.ts";
-import { BrakesAccelModel } from "./brakesAccelModel.ts";
-import { EngineModel } from "./engineDataModel.ts";
+import { ControlsModel } from "./controlsModel.ts";
 import { GPSModel } from "./gpsModel.ts";
-import { SuspensionModel } from "./suspensionModel.ts";
-import { TemperatureModel } from "./temperatureModel.ts";
+import { IMUModel } from "./imuModel.ts";
+import { BatteryModel } from "./batteryModel.ts";
+import { InverterModel } from "./inverterModel.ts";
 import { EventEmitter } from "events";
 
 /**
@@ -11,14 +11,14 @@ import { EventEmitter } from "events";
  * 
  * @author AWBirky
  */
-export default class TelemetryModel {
+export default class Telemetry {
     /** List of models to handle various systems. */
     private readonly models: Model<ModelData>[] = [
-        new SuspensionModel(),
+        new ControlsModel(),
         new GPSModel(),
-        new EngineModel(),
-        new BrakesAccelModel(),
-        new TemperatureModel()
+        new IMUModel(),
+        new BatteryModel(),
+        new InverterModel()
     ];
     
     /** Handles passing data to the server. */
@@ -71,7 +71,7 @@ export default class TelemetryModel {
     ////////// Demo Mode //////////
 
     /** The interval for the demo run. */
-    private demoRun: NodeJS.Timeout;
+    private demoRun: NodeJS.Timeout | null = null;
 
     /**
      * Starts generating demo values for all models at the provided interval.
@@ -89,7 +89,10 @@ export default class TelemetryModel {
      * Stops generating demo values for all models.
      */
     public stopDemo() {
-        clearInterval(this.demoRun);
+        if (this.demoRun) {
+            clearInterval(this.demoRun);
+            this.demoRun = null;
+        }
     }
     
 }
